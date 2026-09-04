@@ -21,6 +21,7 @@ private slots:
     void onConcurrencyChanged(int val);
     void onQualityChanged(const QString &val);
     void onAutoPasteToggled(bool checked);
+    void onThemeChanged(int index);
     void refreshEngineStatus();
 
 private:
@@ -31,6 +32,7 @@ private:
     QSpinBox *m_concurrentSpin;
     QComboBox *m_qualityCombo;
     QCheckBox *m_autoPasteCheck;
+    QComboBox *m_themeCombo;
 
     QLabel *m_ytDlpStatus;
     QLabel *m_ffmpegStatus;

@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFrame>
+#include <QScrollArea>
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget(parent)
@@ -17,90 +18,106 @@ SettingsPage::SettingsPage(QWidget *parent)
 
 void SettingsPage::setupUi()
 {
-    auto *rootLayout = new QVBoxLayout(this);
+    auto *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *scrollArea = new QScrollArea(this);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    auto *container = new QWidget();
+    container->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto *rootLayout = new QVBoxLayout(container);
     rootLayout->setContentsMargins(24, 20, 24, 20);
     rootLayout->setSpacing(16);
 
     // Header Card
-    auto *headerCard = new QFrame(this);
+    auto *headerCard = new QFrame(container);
     headerCard->setObjectName("cardFrame");
     auto *headerLayout = new QVBoxLayout(headerCard);
     headerLayout->setContentsMargins(16, 12, 16, 12);
 
     auto *title = new QLabel("Application Settings", headerCard);
-    title->setStyleSheet("font-size: 16px; font-weight: 700; color: #0f172a;");
-    auto *sub = new QLabel("Configure default save paths, concurrency limits, and tool integrations", headerCard);
+    title->setStyleSheet("font-size: 16px; font-weight: 700;");
+    auto *sub = new QLabel("Configure default save paths, concurrency limits, theme appearance, and tool integrations", headerCard);
     sub->setStyleSheet("font-size: 12px; color: #64748b;");
+    sub->setWordWrap(true);
     headerLayout->addWidget(title);
     headerLayout->addWidget(sub);
     rootLayout->addWidget(headerCard);
 
-    // Download Preferences Card
-    auto *prefCard = new QFrame(this);
-    prefCard->setObjectName("cardFrame");
-    auto *prefLayout = new QVBoxLayout(prefCard);
-    prefLayout->setContentsMargins(18, 16, 18, 16);
-    prefLayout->setSpacing(14);
+    // General Preferences Card
+    auto *generalCard = new QFrame(container);
+    generalCard->setObjectName("cardFrame");
+    auto *generalLayout = new QVBoxLayout(generalCard);
+    generalLayout->setContentsMargins(16, 16, 16, 16);
+    generalLayout->setSpacing(14);
 
-    auto *prefTitle = new QLabel("Download Preferences", prefCard);
-    prefTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0f172a;");
-    prefLayout->addWidget(prefTitle);
+    auto *generalTitle = new QLabel("General Preferences", generalCard);
+    generalTitle->setStyleSheet("font-size: 14px; font-weight: 700;");
+    generalLayout->addWidget(generalTitle);
 
-    auto *grid = new QGridLayout();
-    grid->setSpacing(12);
+    auto *generalGrid = new QGridLayout();
+    generalGrid->setSpacing(12);
 
     // 1. Download Folder
-    auto *folderLabel = new QLabel("Default Download Directory:", prefCard);
-    folderLabel->setStyleSheet("font-weight: 500; color: #334155;");
-    m_folderEdit = new QLineEdit(AppSettings::instance().downloadFolder(), prefCard);
-    m_browseFolderBtn = new QPushButton("Browse...", prefCard);
-    m_browseFolderBtn->setFixedWidth(90);
-
+    generalGrid->addWidget(new QLabel("Default Download Path:", generalCard), 0, 0);
     auto *folderRow = new QHBoxLayout();
+    folderRow->setSpacing(8);
+    m_folderEdit = new QLineEdit(AppSettings::instance().downloadFolder(), generalCard);
+    m_folderEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_browseFolderBtn = new QPushButton("Browse...", generalCard);
+    m_browseFolderBtn->setFixedWidth(90);
     folderRow->addWidget(m_folderEdit, 1);
     folderRow->addWidget(m_browseFolderBtn);
+    generalGrid->addLayout(folderRow, 0, 1);
 
-    grid->addWidget(folderLabel, 0, 0);
-    grid->addLayout(folderRow, 0, 1);
-
-    // 2. Max Concurrent Downloads
-    auto *concurrentLabel = new QLabel("Maximum Simultaneous Downloads:", prefCard);
-    concurrentLabel->setStyleSheet("font-weight: 500; color: #334155;");
-    m_concurrentSpin = new QSpinBox(prefCard);
+    // 2. Concurrency
+    generalGrid->addWidget(new QLabel("Max Concurrent Downloads:", generalCard), 1, 0);
+    m_concurrentSpin = new QSpinBox(generalCard);
     m_concurrentSpin->setRange(1, 5);
     m_concurrentSpin->setValue(AppSettings::instance().maxConcurrentDownloads());
-    m_concurrentSpin->setFixedWidth(100);
+    m_concurrentSpin->setFixedWidth(90);
+    generalGrid->addWidget(m_concurrentSpin, 1, 1, Qt::AlignLeft);
 
-    grid->addWidget(concurrentLabel, 1, 0);
-    grid->addWidget(m_concurrentSpin, 1, 1, Qt::AlignLeft);
+    // 3. Default Quality
+    generalGrid->addWidget(new QLabel("Preferred Quality:", generalCard), 2, 0);
+    m_qualityCombo = new QComboBox(generalCard);
+    m_qualityCombo->addItems({"Best Quality", "1080p", "720p", "480p", "Audio Only (MP3)"});
+    m_qualityCombo->setCurrentText(AppSettings::instance().defaultQuality());
+    m_qualityCombo->setFixedWidth(180);
+    generalGrid->addWidget(m_qualityCombo, 2, 1, Qt::AlignLeft);
 
-    // 3. Preferred Quality
-    auto *qualityLabel = new QLabel("Preferred Default Quality:", prefCard);
-    qualityLabel->setStyleSheet("font-weight: 500; color: #334155;");
-    m_qualityCombo = new QComboBox(prefCard);
-    m_qualityCombo->addItems({"Best Available (1080p/4K)", "720p HD", "480p SD", "Audio Only (MP3)"});
-    m_qualityCombo->setFixedWidth(240);
-    grid->addWidget(qualityLabel, 2, 0);
-    grid->addWidget(m_qualityCombo, 2, 1, Qt::AlignLeft);
+    // 4. Theme Selection (Light / Dark)
+    generalGrid->addWidget(new QLabel("Interface Appearance:", generalCard), 3, 0);
+    m_themeCombo = new QComboBox(generalCard);
+    m_themeCombo->addItem("Light Mode", "light");
+    m_themeCombo->addItem("Dark Mode", "dark");
+    if (AppSettings::instance().themeMode() == "dark") {
+        m_themeCombo->setCurrentIndex(1);
+    } else {
+        m_themeCombo->setCurrentIndex(0);
+    }
+    m_themeCombo->setFixedWidth(180);
+    generalGrid->addWidget(m_themeCombo, 3, 1, Qt::AlignLeft);
 
-    prefLayout->addLayout(grid);
-
-    // 4. Auto-paste clipboard
-    m_autoPasteCheck = new QCheckBox("Automatically detect and paste media links from Windows clipboard", prefCard);
+    // 5. Auto Paste
+    m_autoPasteCheck = new QCheckBox("Automatically paste link from clipboard on window focus", generalCard);
     m_autoPasteCheck->setChecked(AppSettings::instance().autoPasteClipboard());
-    prefLayout->addWidget(m_autoPasteCheck);
+    generalGrid->addWidget(m_autoPasteCheck, 4, 0, 1, 2);
 
-    rootLayout->addWidget(prefCard);
+    generalLayout->addLayout(generalGrid);
+    rootLayout->addWidget(generalCard);
 
-    // Backend Tools Card
-    auto *toolsCard = new QFrame(this);
+    // Engine Diagnostic Card
+    auto *toolsCard = new QFrame(container);
     toolsCard->setObjectName("cardFrame");
     auto *toolsLayout = new QVBoxLayout(toolsCard);
-    toolsLayout->setContentsMargins(18, 16, 18, 16);
+    toolsLayout->setContentsMargins(16, 16, 16, 16);
     toolsLayout->setSpacing(12);
 
     auto *toolsTitle = new QLabel("Media Engine Integration", toolsCard);
-    toolsTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0f172a;");
+    toolsTitle->setStyleSheet("font-size: 14px; font-weight: 700;");
     toolsLayout->addWidget(toolsTitle);
 
     auto *toolsGrid = new QGridLayout();
@@ -119,12 +136,16 @@ void SettingsPage::setupUi()
 
     rootLayout->addStretch();
 
+    scrollArea->setWidget(container);
+    outerLayout->addWidget(scrollArea);
+
     // Connections
     connect(m_browseFolderBtn, &QPushButton::clicked, this, &SettingsPage::browseDownloadFolder);
     connect(m_folderEdit, &QLineEdit::textChanged, this, &SettingsPage::onFolderChanged);
     connect(m_concurrentSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SettingsPage::onConcurrencyChanged);
     connect(m_qualityCombo, &QComboBox::currentTextChanged, this, &SettingsPage::onQualityChanged);
     connect(m_autoPasteCheck, &QCheckBox::toggled, this, &SettingsPage::onAutoPasteToggled);
+    connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsPage::onThemeChanged);
 }
 
 void SettingsPage::browseDownloadFolder()
@@ -156,23 +177,29 @@ void SettingsPage::onAutoPasteToggled(bool checked)
     AppSettings::instance().setAutoPasteClipboard(checked);
 }
 
+void SettingsPage::onThemeChanged(int index)
+{
+    QString mode = m_themeCombo->itemData(index).toString();
+    AppSettings::instance().setThemeMode(mode);
+}
+
 void SettingsPage::refreshEngineStatus()
 {
     QString ytDlp = AppSettings::findExecutable("yt-dlp");
     if (QFileInfo::exists(ytDlp)) {
-        m_ytDlpStatus->setText("✓ Ready (" + ytDlp + ")");
+        m_ytDlpStatus->setText("Ready (" + ytDlp + ")");
         m_ytDlpStatus->setStyleSheet("color: #16a34a; font-weight: 600;");
     } else {
-        m_ytDlpStatus->setText("⚠ Not found (Will be bundled with installer)");
+        m_ytDlpStatus->setText("Not Found (Bundled with installer)");
         m_ytDlpStatus->setStyleSheet("color: #d97706;");
     }
 
     QString ffmpeg = AppSettings::findExecutable("ffmpeg");
     if (QFileInfo::exists(ffmpeg)) {
-        m_ffmpegStatus->setText("✓ Ready (" + ffmpeg + ")");
+        m_ffmpegStatus->setText("Ready (" + ffmpeg + ")");
         m_ffmpegStatus->setStyleSheet("color: #16a34a; font-weight: 600;");
     } else {
-        m_ffmpegStatus->setText("⚠ Not found (Will be bundled with installer)");
+        m_ffmpegStatus->setText("Not Found (Bundled with installer)");
         m_ffmpegStatus->setStyleSheet("color: #d97706;");
     }
 }

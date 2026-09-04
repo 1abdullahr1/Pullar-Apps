@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QProcess>
+#include <QTimer>
 #include "VideoMetadata.h"
 
 class ExtractorEngine : public QObject {
@@ -26,11 +27,15 @@ signals:
 private slots:
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onProcessError(QProcess::ProcessError err);
+    void onWatchdogTimeout();
 
 private:
-    QProcess *m_process;
+    void setupProcess();
+
+    QProcess *m_process = nullptr;
+    QTimer *m_watchdogTimer = nullptr;
     QString m_currentUrl;
-    QByteArray m_outputBuffer;
+    bool m_isCanceled = false;
 };
 
 #endif // EXTRACTORENGINE_H

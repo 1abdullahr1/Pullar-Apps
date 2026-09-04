@@ -22,25 +22,26 @@ signals:
     void resumeRequested(const QString &taskId);
     void cancelRequested(const QString &taskId);
     void removeRequested(const QString &taskId);
+    void playRequested(const QString &filePath, const QString &title, bool isAudioOnly);
 
 private slots:
-    void openFile();
+    void handlePlayClicked();
     void openFolder();
 
 private:
     void setupUi();
 
     DownloadTask m_task;
-    QLabel *m_titleLabel;
-    QLabel *m_formatBadge;
-    QLabel *m_statusBadge;
-    QProgressBar *m_progressBar;
-    QLabel *m_metricsLabel;
+    QLabel *m_titleLabel = nullptr;
+    QLabel *m_formatBadge = nullptr;
+    QLabel *m_statusBadge = nullptr;
+    QProgressBar *m_progressBar = nullptr;
+    QLabel *m_metricsLabel = nullptr;
 
-    QPushButton *m_pauseResumeBtn;
-    QPushButton *m_cancelBtn;
-    QPushButton *m_openFileBtn;
-    QPushButton *m_openFolderBtn;
+    QPushButton *m_pauseResumeBtn = nullptr;
+    QPushButton *m_cancelBtn = nullptr;
+    QPushButton *m_playBtn = nullptr;
+    QPushButton *m_openFolderBtn = nullptr;
 };
 
 #endif // DOWNLOADCARDWIDGET_H

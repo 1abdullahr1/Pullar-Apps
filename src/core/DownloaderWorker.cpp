@@ -3,19 +3,32 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QTimer>
 
 DownloaderWorker::DownloaderWorker(const DownloadTask &task, QObject *parent)
-    : QObject(parent), m_task(task), m_process(new QProcess(this))
+    : QObject(parent), m_task(task)
 {
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &DownloaderWorker::onReadyReadStandardOutput);
-    connect(m_process, &QProcess::readyReadStandardError, this, &DownloaderWorker::onReadyReadStandardError);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &DownloaderWorker::onProcessFinished);
+    setupProcess();
 }
 
 DownloaderWorker::~DownloaderWorker()
 {
     cancel();
+}
+
+void DownloaderWorker::setupProcess()
+{
+    if (m_process) {
+        m_process->disconnect(this);
+        m_process->deleteLater();
+        m_process = nullptr;
+    }
+
+    m_process = new QProcess(this);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &DownloaderWorker::onReadyReadStandardOutput);
+    connect(m_process, &QProcess::readyReadStandardError, this, &DownloaderWorker::onReadyReadStandardError);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &DownloaderWorker::onProcessFinished);
 }
 
 QString DownloaderWorker::taskId() const
@@ -25,6 +38,14 @@ QString DownloaderWorker::taskId() const
 
 void DownloaderWorker::start()
 {
+    m_isCanceled = false;
+    m_isPaused = false;
+    m_lastError.clear();
+
+    if (!m_process) {
+        setupProcess();
+    }
+
     QString ytDlp = AppSettings::findExecutable("yt-dlp");
     QString ffmpeg = AppSettings::findExecutable("ffmpeg");
 
@@ -58,17 +79,48 @@ void DownloaderWorker::start()
 
 void DownloaderWorker::cancel()
 {
-    if (m_process->state() != QProcess::NotRunning) {
+    m_isCanceled = true;
+
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        // Disconnect callbacks so termination never triggers onProcessFinished/failed signals
+        m_process->disconnect(this);
+
+#ifdef Q_OS_WIN
+        qint64 pid = m_process->processId();
+        if (pid > 0) {
+            // Asynchronously kill entire process tree (/T) with force (/F)
+            QProcess::startDetached("taskkill", QStringList() << "/F" << "/T" << "/PID" << QString::number(pid));
+        }
+#endif
         m_process->kill();
-        m_process->waitForFinished(500);
+
+        // Release process asynchronously without blocking the UI thread
+        QProcess *oldProcess = m_process;
+        m_process = nullptr;
+        connect(oldProcess, &QProcess::finished, oldProcess, &QObject::deleteLater);
+        QTimer::singleShot(3000, oldProcess, &QObject::deleteLater);
     }
+
+    emit downloadCanceled(m_task.id);
 }
 
 void DownloaderWorker::pause()
 {
-    // Suspend or kill process gracefully; yt-dlp automatically resumes on re-start
-    cancel();
     m_isPaused = true;
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        m_process->disconnect(this);
+#ifdef Q_OS_WIN
+        qint64 pid = m_process->processId();
+        if (pid > 0) {
+            QProcess::startDetached("taskkill", QStringList() << "/F" << "/T" << "/PID" << QString::number(pid));
+        }
+#endif
+        m_process->kill();
+        QProcess *oldProcess = m_process;
+        m_process = nullptr;
+        connect(oldProcess, &QProcess::finished, oldProcess, &QObject::deleteLater);
+        QTimer::singleShot(3000, oldProcess, &QObject::deleteLater);
+    }
 }
 
 void DownloaderWorker::resume()
@@ -81,11 +133,13 @@ void DownloaderWorker::resume()
 
 bool DownloaderWorker::isRunning() const
 {
-    return m_process->state() != QProcess::NotRunning;
+    return m_process && m_process->state() != QProcess::NotRunning;
 }
 
 void DownloaderWorker::onReadyReadStandardOutput()
 {
+    if (!m_process || m_isCanceled) return;
+
     while (m_process->canReadLine()) {
         QString line = QString::fromUtf8(m_process->readLine()).trimmed();
         parseProgressLine(line);
@@ -94,6 +148,8 @@ void DownloaderWorker::onReadyReadStandardOutput()
 
 void DownloaderWorker::onReadyReadStandardError()
 {
+    if (!m_process || m_isCanceled) return;
+
     QString err = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
     if (!err.isEmpty()) {
         m_lastError = err;
@@ -102,6 +158,8 @@ void DownloaderWorker::onReadyReadStandardError()
 
 void DownloaderWorker::parseProgressLine(const QString &line)
 {
+    if (m_isCanceled) return;
+
     // Check destination filename
     if (line.contains("Destination:")) {
         QString path = line.section("Destination:", 1).trimmed();
@@ -127,7 +185,7 @@ void DownloaderWorker::parseProgressLine(const QString &line)
 
 void DownloaderWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    if (m_isPaused) {
+    if (m_isPaused || m_isCanceled) {
         return;
     }
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(VideoDownloader VERSION 1.0.0 LANGUAGES CXX)
+project(VideoDownloader VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,8 +9,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Find Qt 6
-find_package(Qt6 6.2 COMPONENTS Core Gui Widgets Network REQUIRED)
+# Find Qt 6 modules
+find_package(Qt6 6.2 COMPONENTS Core Gui Widgets Network Multimedia MultimediaWidgets REQUIRED)
 
 # Include directories
 include_directories(
@@ -42,6 +42,8 @@ set(UI_SOURCES
     src/ui/DownloadCardWidget.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
+    src/ui/MediaPlayerWidget.h
+    src/ui/MediaPlayerWidget.cpp
     src/ui/DownloadsPage.h
     src/ui/DownloadsPage.cpp
     src/ui/HistoryPage.h
@@ -79,6 +81,8 @@ target_link_libraries(VideoDownloader PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    Qt6::Multimedia
+    Qt6::MultimediaWidgets
 )
 
 if(MSVC)

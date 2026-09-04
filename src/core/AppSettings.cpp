@@ -19,12 +19,17 @@ AppSettings::AppSettings(QObject *parent)
 
 void AppSettings::load()
 {
-    QSettings s("AbdullahBhatti", "VideoDownloader");
+    QSettings s("OphiraLabs", "VideoDownloader");
     QString defDownloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     m_downloadFolder = s.value("downloadFolder", defDownloads).toString();
     m_maxConcurrentDownloads = s.value("maxConcurrentDownloads", 3).toInt();
     m_defaultQuality = s.value("defaultQuality", "1080p").toString();
     m_autoPasteClipboard = s.value("autoPasteClipboard", true).toBool();
+    m_themeMode = s.value("themeMode", "light").toString();
+
+    if (m_themeMode != "light" && m_themeMode != "dark") {
+        m_themeMode = "light";
+    }
 
     if (m_downloadFolder.isEmpty() || !QDir(m_downloadFolder).exists()) {
         m_downloadFolder = defDownloads;
@@ -33,11 +38,12 @@ void AppSettings::load()
 
 void AppSettings::save()
 {
-    QSettings s("AbdullahBhatti", "VideoDownloader");
+    QSettings s("OphiraLabs", "VideoDownloader");
     s.setValue("downloadFolder", m_downloadFolder);
     s.setValue("maxConcurrentDownloads", m_maxConcurrentDownloads);
     s.setValue("defaultQuality", m_defaultQuality);
     s.setValue("autoPasteClipboard", m_autoPasteClipboard);
+    s.setValue("themeMode", m_themeMode);
 }
 
 QString AppSettings::downloadFolder() const
@@ -96,28 +102,43 @@ void AppSettings::setAutoPasteClipboard(bool enable)
     }
 }
 
+QString AppSettings::themeMode() const
+{
+    return m_themeMode;
+}
+
+void AppSettings::setThemeMode(const QString &theme)
+{
+    if (m_themeMode != theme && (theme == "light" || theme == "dark")) {
+        m_themeMode = theme;
+        save();
+        emit themeChanged(m_themeMode);
+        emit settingsChanged();
+    }
+}
+
 QString AppSettings::findExecutable(const QString &exeName)
 {
     QString appDir = QCoreApplication::applicationDirPath();
-    QString fileName = exeName.endsWith(".exe") ? exeName : exeName + ".exe";
+    QString filename = exeName;
+#ifdef Q_OS_WIN
+    if (!filename.endsWith(".exe", Qt::CaseInsensitive)) {
+        filename += ".exe";
+    }
+#endif
 
-    // 1. Same directory as application exe
-    QString candidate1 = QDir(appDir).filePath(fileName);
-    if (QFileInfo::exists(candidate1)) {
-        return candidate1;
+    // 1. Same folder as app executable
+    QString localPath = QDir(appDir).filePath(filename);
+    if (QFileInfo::exists(localPath)) {
+        return localPath;
     }
 
-    // 2. Subdirectory 'bin/'
-    QString candidate2 = QDir(appDir).filePath("bin/" + fileName);
-    if (QFileInfo::exists(candidate2)) {
-        return candidate2;
+    // 2. Subdirectory tools/ or bin/
+    QString binPath = QDir(appDir).filePath("bin/" + filename);
+    if (QFileInfo::exists(binPath)) {
+        return binPath;
     }
 
-    // 3. System PATH
-    QString sysPath = QStandardPaths::findExecutable(exeName);
-    if (!sysPath.isEmpty()) {
-        return sysPath;
-    }
-
-    return fileName; // Fallback to raw command
+    // 3. Search in system PATH
+    return QStandardPaths::findExecutable(exeName);
 }

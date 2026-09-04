@@ -41,6 +41,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
+          modules: 'qtmultimedia'
 
       - name: Install Ninja
         shell: pwsh
@@ -68,7 +69,7 @@ jobs:
           Copy-Item $exePath dist\VideoDownloader.exe
           Copy-Item LICENSE dist\LICENSE.txt
           
-          # Run windeployqt to bundle all required Qt runtime DLLs and plugins
+          # Run windeployqt to bundle all required Qt runtime DLLs, multimedia plugins, and platform files
           windeployqt --release --compiler-runtime --no-translations --no-system-d3d-compiler dist\VideoDownloader.exe
 
       - name: Download & Bundle Standalone yt-dlp
@@ -120,21 +121,21 @@ jobs:
       - name: Create Portable Standalone ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\* -DestinationPath VideoDownloader_v1.0.0_Portable.zip -CompressionLevel Optimal
-          Get-Item VideoDownloader_v1.0.0_Portable.zip
+          Compress-Archive -Path dist\* -DestinationPath VideoDownloader_v1.1.0_Portable.zip -CompressionLevel Optimal
+          Get-Item VideoDownloader_v1.1.0_Portable.zip
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Windows-Installer
-          path: installer/Output/VideoDownloader_Setup_v1.0.0.exe
+          path: installer/Output/VideoDownloader_Setup_v1.1.0.exe
           retention-days: 30
 
       - name: Upload Portable ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Windows-Portable
-          path: VideoDownloader_v1.0.0_Portable.zip
+          path: VideoDownloader_v1.1.0_Portable.zip
           retention-days: 30
 
       - name: Publish GitHub Release
@@ -142,8 +143,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            installer/Output/VideoDownloader_Setup_v1.0.0.exe
-            VideoDownloader_v1.0.0_Portable.zip
+            installer/Output/VideoDownloader_Setup_v1.1.0.exe
+            VideoDownloader_v1.1.0_Portable.zip
           name: Simplest Video Downloader ${{ github.ref_name }}
           draft: false
           prerelease: false

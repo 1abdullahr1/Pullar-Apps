@@ -8,6 +8,7 @@
 #include <QMap>
 #include "DownloadCardWidget.h"
 #include "DownloadTask.h"
+#include "MediaPlayerWidget.h"
 
 class DownloadsPage : public QWidget {
     Q_OBJECT
@@ -27,11 +28,13 @@ private slots:
 private:
     void setupUi();
 
-    QVBoxLayout *m_cardsLayout;
-    QWidget *m_emptyLabelWidget;
-    QLabel *m_countLabel;
-    QPushButton *m_clearCompletedBtn;
+    QVBoxLayout *m_cardsLayout = nullptr;
+    QWidget *m_emptyLabelWidget = nullptr;
+    QLabel *m_countLabel = nullptr;
+    QPushButton *m_clearCompletedBtn = nullptr;
     QMap<QString, DownloadCardWidget*> m_cards;
+
+    MediaPlayerWidget *m_playerWidget = nullptr;
 };
 
 #endif // DOWNLOADSPAGE_H

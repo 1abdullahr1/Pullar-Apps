@@ -15,49 +15,42 @@ DownloadManager::DownloadManager(QObject *parent)
 
 void DownloadManager::enqueueTask(const DownloadTask &task)
 {
-    m_tasks.append(task);
-    emit taskAdded(task);
-    emit queueStatusChanged(activeCount(), totalCount());
-    processQueue();
-}
+    DownloadTask t = task;
+    t.status = TaskStatus::Queued;
+    t.progressPercent = 0.0;
+    t.speedText = "Queued";
+    t.etaText = "--:--";
 
-int DownloadManager::findTaskIndex(const QString &taskId) const
-{
-    for (int i = 0; i < m_tasks.size(); ++i) {
-        if (m_tasks[i].id == taskId) {
-            return i;
-        }
-    }
-    return -1;
+    m_tasks.append(t);
+    emit taskAdded(t);
+    emit queueStatusChanged(activeCount(), totalCount());
+
+    processQueue();
 }
 
 void DownloadManager::processQueue()
 {
-    int maxActive = AppSettings::instance().maxConcurrentDownloads();
-    int currentActive = activeCount();
+    int maxConcurrent = AppSettings::instance().maxConcurrentDownloads();
 
-    if (currentActive >= maxActive) {
-        return;
-    }
+    // Start queued tasks up to limit
+    for (auto &task : m_tasks) {
+        if (activeCount() >= maxConcurrent) {
+            break;
+        }
 
-    for (DownloadTask &task : m_tasks) {
-        if (task.status == TaskStatus::Queued && !m_workers.contains(task.id)) {
+        if (task.status == TaskStatus::Queued) {
             task.status = TaskStatus::Downloading;
+            task.speedText = "Starting...";
+
             auto *worker = new DownloaderWorker(task, this);
+            m_workers[task.id] = worker;
 
             connect(worker, &DownloaderWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
             connect(worker, &DownloaderWorker::downloadCompleted, this, &DownloadManager::onWorkerCompleted);
             connect(worker, &DownloaderWorker::downloadFailed, this, &DownloadManager::onWorkerFailed);
 
-            m_workers[task.id] = worker;
             worker->start();
-
-            currentActive++;
             emit queueStatusChanged(activeCount(), totalCount());
-
-            if (currentActive >= maxActive) {
-                break;
-            }
         }
     }
 }
@@ -66,9 +59,9 @@ void DownloadManager::pauseTask(const QString &taskId)
 {
     int idx = findTaskIndex(taskId);
     if (idx >= 0 && m_workers.contains(taskId)) {
-        m_workers[taskId]->pause();
-        m_workers[taskId]->deleteLater();
-        m_workers.remove(taskId);
+        DownloaderWorker *w = m_workers.take(taskId);
+        w->pause();
+        w->deleteLater();
         m_tasks[idx].status = TaskStatus::Paused;
         m_tasks[idx].speedText = "Paused";
         emit queueStatusChanged(activeCount(), totalCount());
@@ -90,12 +83,13 @@ void DownloadManager::cancelTask(const QString &taskId)
     int idx = findTaskIndex(taskId);
     if (idx >= 0) {
         if (m_workers.contains(taskId)) {
-            m_workers[taskId]->cancel();
-            m_workers[taskId]->deleteLater();
-            m_workers.remove(taskId);
+            DownloaderWorker *w = m_workers.take(taskId);
+            w->cancel();
+            w->deleteLater();
         }
         m_tasks[idx].status = TaskStatus::Canceled;
         m_tasks[idx].speedText = "Canceled";
+        emit taskCanceled(taskId);
         emit queueStatusChanged(activeCount(), totalCount());
         processQueue();
     }
@@ -129,7 +123,7 @@ const QVector<DownloadTask>& DownloadManager::tasks() const
 int DownloadManager::activeCount() const
 {
     int count = 0;
-    for (const DownloadTask &t : m_tasks) {
+    for (const auto &t : m_tasks) {
         if (t.status == TaskStatus::Downloading) {
             count++;
         }
@@ -195,4 +189,14 @@ void DownloadManager::onWorkerFailed(const QString &taskId, const QString &error
 
     emit queueStatusChanged(activeCount(), totalCount());
     processQueue();
+}
+
+int DownloadManager::findTaskIndex(const QString &taskId) const
+{
+    for (int i = 0; i < m_tasks.size(); ++i) {
+        if (m_tasks[i].id == taskId) {
+            return i;
+        }
+    }
+    return -1;
 }

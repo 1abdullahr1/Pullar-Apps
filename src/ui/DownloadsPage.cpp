@@ -17,6 +17,9 @@ DownloadsPage::DownloadsPage(QWidget *parent)
     connect(&DownloadManager::instance(), &DownloadManager::taskFailed, this, [this](const QString &id, const QString &err) {
         updateTaskStatus(id, TaskStatus::Failed, QString(), err);
     });
+    connect(&DownloadManager::instance(), &DownloadManager::taskCanceled, this, [this](const QString &id) {
+        updateTaskStatus(id, TaskStatus::Canceled);
+    });
 }
 
 void DownloadsPage::setupUi()
@@ -32,50 +35,47 @@ void DownloadsPage::setupUi()
     headerLayout->setContentsMargins(16, 12, 16, 12);
 
     auto *titleLayout = new QVBoxLayout();
-    auto *titleLabel = new QLabel("Active Downloads Queue", headerCard);
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: 700; color: #0f172a;");
-    m_countLabel = new QLabel("0 downloads in queue", headerCard);
+    auto *title = new QLabel("Active Downloads Queue", headerCard);
+    title->setStyleSheet("font-size: 16px; font-weight: 700;");
+    m_countLabel = new QLabel("0 downloads in progress", headerCard);
     m_countLabel->setStyleSheet("font-size: 12px; color: #64748b;");
-    titleLayout->addWidget(titleLabel);
+    titleLayout->addWidget(title);
     titleLayout->addWidget(m_countLabel);
-    headerLayout->addLayout(titleLayout);
 
+    headerLayout->addLayout(titleLayout);
     headerLayout->addStretch();
 
-    m_clearCompletedBtn = new QPushButton("Clear Completed", headerCard);
+    m_clearCompletedBtn = new QPushButton("Clear Finished", headerCard);
+    m_clearCompletedBtn->setFixedWidth(130);
     headerLayout->addWidget(m_clearCompletedBtn);
+
     rootLayout->addWidget(headerCard);
 
     // Scroll Area for Download Cards
     auto *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    auto *container = new QWidget(scrollArea);
+    auto *container = new QWidget();
+    container->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_cardsLayout = new QVBoxLayout(container);
     m_cardsLayout->setContentsMargins(0, 0, 0, 0);
     m_cardsLayout->setSpacing(10);
 
-    // Empty State Widget
+    // Empty state placeholder (zero emojis)
     m_emptyLabelWidget = new QWidget(container);
     auto *emptyLayout = new QVBoxLayout(m_emptyLabelWidget);
-    emptyLayout->setContentsMargins(40, 60, 40, 60);
     emptyLayout->setAlignment(Qt::AlignCenter);
-    emptyLayout->setSpacing(10);
-
-    auto *emptyIcon = new QLabel("📥", m_emptyLabelWidget);
-    emptyIcon->setStyleSheet("font-size: 48px; color: #94a3b8;");
-    emptyIcon->setAlignment(Qt::AlignCenter);
+    emptyLayout->setContentsMargins(40, 60, 40, 60);
 
     auto *emptyTitle = new QLabel("No Active Downloads", m_emptyLabelWidget);
-    emptyTitle->setStyleSheet("font-size: 16px; font-weight: 700; color: #334155;");
+    emptyTitle->setStyleSheet("font-size: 17px; font-weight: 700; color: #64748b; margin-bottom: 4px;");
     emptyTitle->setAlignment(Qt::AlignCenter);
 
-    auto *emptyDesc = new QLabel("Videos you add will appear here with live progress bars and speed gauges.", m_emptyLabelWidget);
-    emptyDesc->setStyleSheet("font-size: 13px; color: #64748b;");
+    auto *emptyDesc = new QLabel("Enter a video or audio link on the Downloader page to start.", m_emptyLabelWidget);
+    emptyDesc->setStyleSheet("font-size: 13px; color: #94a3b8;");
     emptyDesc->setAlignment(Qt::AlignCenter);
 
-    emptyLayout->addWidget(emptyIcon);
     emptyLayout->addWidget(emptyTitle);
     emptyLayout->addWidget(emptyDesc);
     m_cardsLayout->addWidget(m_emptyLabelWidget);
@@ -83,6 +83,10 @@ void DownloadsPage::setupUi()
     m_cardsLayout->addStretch();
     scrollArea->setWidget(container);
     rootLayout->addWidget(scrollArea, 1);
+
+    // Embedded Media Player Widget (docked at the bottom of the page)
+    m_playerWidget = new MediaPlayerWidget(this);
+    rootLayout->addWidget(m_playerWidget);
 
     connect(m_clearCompletedBtn, &QPushButton::clicked, this, &DownloadsPage::clearFinished);
 }
@@ -105,6 +109,20 @@ void DownloadsPage::addTask(const DownloadTask &task)
     });
     connect(card, &DownloadCardWidget::cancelRequested, this, [](const QString &id) {
         DownloadManager::instance().cancelTask(id);
+    });
+    connect(card, &DownloadCardWidget::removeRequested, this, [this](const QString &id) {
+        DownloadManager::instance().removeTask(id);
+        if (m_cards.contains(id)) {
+            DownloadCardWidget *c = m_cards.take(id);
+            c->deleteLater();
+        }
+        updateHeader();
+        if (m_cards.isEmpty()) {
+            m_emptyLabelWidget->setVisible(true);
+        }
+    });
+    connect(card, &DownloadCardWidget::playRequested, this, [this](const QString &filePath, const QString &title, bool isAudioOnly) {
+        m_playerWidget->playMedia(filePath, title, isAudioOnly);
     });
 
     updateHeader();
@@ -130,7 +148,6 @@ void DownloadsPage::clearFinished()
     DownloadManager::instance().clearCompleted();
     for (auto it = m_cards.begin(); it != m_cards.end();) {
         DownloadCardWidget *card = it.value();
-        // If finished, remove card
         it = m_cards.erase(it);
         card->deleteLater();
     }
@@ -145,6 +162,10 @@ void DownloadsPage::updateHeader()
 {
     int active = DownloadManager::instance().activeCount();
     int total = DownloadManager::instance().totalCount();
-    m_countLabel->setText(QString("%1 active • %2 total in queue").arg(active).arg(total));
-    m_emptyLabelWidget->setVisible(m_cards.isEmpty());
+
+    if (active > 0) {
+        m_countLabel->setText(QString("%1 active • %2 total in queue").arg(active).arg(total));
+    } else {
+        m_countLabel->setText(QString("%1 tasks in queue").arg(total));
+    }
 }

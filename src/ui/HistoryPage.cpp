@@ -79,14 +79,14 @@ void HistoryPage::setupUi()
 
     // Action Row below table
     auto *actionRow = new QHBoxLayout();
-    m_playBtn = new QPushButton("▶ Play / Open File", tableCard);
+    m_playBtn = new QPushButton("Open File", tableCard);
     m_playBtn->setObjectName("primaryButton");
     m_playBtn->setEnabled(false);
 
-    m_folderBtn = new QPushButton("📁 Show in Folder", tableCard);
+    m_folderBtn = new QPushButton("Show in Folder", tableCard);
     m_folderBtn->setEnabled(false);
 
-    m_copyUrlBtn = new QPushButton("📋 Copy Link", tableCard);
+    m_copyUrlBtn = new QPushButton("Copy Link", tableCard);
     m_copyUrlBtn->setEnabled(false);
 
     actionRow->addWidget(m_playBtn);

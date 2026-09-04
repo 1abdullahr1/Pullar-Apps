@@ -29,6 +29,7 @@ signals:
     void taskProgress(const QString &taskId, double percent, const QString &speed, const QString &eta);
     void taskCompleted(const DownloadTask &task);
     void taskFailed(const QString &taskId, const QString &error);
+    void taskCanceled(const QString &taskId);
     void queueStatusChanged(int activeCount, int totalCount);
 
 private slots:

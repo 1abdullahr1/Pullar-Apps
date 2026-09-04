@@ -8,11 +8,13 @@
 #include <QRegularExpression>
 
 ExtractorEngine::ExtractorEngine(QObject *parent)
-    : QObject(parent), m_process(new QProcess(this))
+    : QObject(parent)
 {
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &ExtractorEngine::onProcessFinished);
-    connect(m_process, &QProcess::errorOccurred, this, &ExtractorEngine::onProcessError);
+    m_watchdogTimer = new QTimer(this);
+    m_watchdogTimer->setSingleShot(true);
+    connect(m_watchdogTimer, &QTimer::timeout, this, &ExtractorEngine::onWatchdogTimeout);
+
+    setupProcess();
 }
 
 ExtractorEngine::~ExtractorEngine()
@@ -20,11 +22,26 @@ ExtractorEngine::~ExtractorEngine()
     cancel();
 }
 
+void ExtractorEngine::setupProcess()
+{
+    if (m_process) {
+        m_process->disconnect(this);
+        m_process->deleteLater();
+        m_process = nullptr;
+    }
+
+    m_process = new QProcess(this);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &ExtractorEngine::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &ExtractorEngine::onProcessError);
+}
+
 void ExtractorEngine::analyzeUrl(const QString &url)
 {
     cancel();
+
+    m_isCanceled = false;
     m_currentUrl = url.trimmed();
-    m_outputBuffer.clear();
 
     if (m_currentUrl.isEmpty()) {
         emit analysisFailed("Please enter or paste a valid video URL.");
@@ -53,28 +70,58 @@ void ExtractorEngine::analyzeUrl(const QString &url)
         return;
     }
 
+    if (!m_process) {
+        setupProcess();
+    }
+
     QString ytDlpPath = AppSettings::findExecutable("yt-dlp");
     QStringList args;
-    args << "--dump-single-json" << "--no-warnings" << "--no-playlist" << m_currentUrl;
+    args << "--dump-single-json" << "--no-warnings" << "--no-playlist"
+         << "--skip-download" << "--socket-timeout" << "10" << m_currentUrl;
 
     m_process->start(ytDlpPath, args);
+    m_watchdogTimer->start(22000); // 22 second timeout
 }
 
 void ExtractorEngine::cancel()
 {
-    if (m_process->state() != QProcess::NotRunning) {
+    m_isCanceled = true;
+    if (m_watchdogTimer) {
+        m_watchdogTimer->stop();
+    }
+
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        m_process->disconnect(this);
+
+#ifdef Q_OS_WIN
+        qint64 pid = m_process->processId();
+        if (pid > 0) {
+            QProcess::startDetached("taskkill", QStringList() << "/F" << "/T" << "/PID" << QString::number(pid));
+        }
+#endif
         m_process->kill();
-        m_process->waitForFinished(500);
+        QProcess *oldProc = m_process;
+        m_process = nullptr;
+        connect(oldProc, &QProcess::finished, oldProc, &QObject::deleteLater);
+        QTimer::singleShot(3000, oldProc, &QObject::deleteLater);
     }
 }
 
 bool ExtractorEngine::isRunning() const
 {
-    return m_process->state() != QProcess::NotRunning;
+    return m_process && m_process->state() != QProcess::NotRunning;
 }
 
 void ExtractorEngine::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    if (m_watchdogTimer) {
+        m_watchdogTimer->stop();
+    }
+
+    if (m_isCanceled || !m_process) {
+        return;
+    }
+
     if (exitStatus != QProcess::NormalExit || exitCode != 0) {
         QString errStr = QString::fromUtf8(m_process->readAllStandardError());
         if (errStr.trimmed().isEmpty()) {
@@ -141,8 +188,22 @@ void ExtractorEngine::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
 
 void ExtractorEngine::onProcessError(QProcess::ProcessError err)
 {
+    if (m_isCanceled) return;
+
+    if (m_watchdogTimer) {
+        m_watchdogTimer->stop();
+    }
+
     if (err == QProcess::FailedToStart) {
         emit analysisFailed("yt-dlp executable was not found. Please ensure yt-dlp is installed or in the application folder.");
+    }
+}
+
+void ExtractorEngine::onWatchdogTimeout()
+{
+    if (isRunning()) {
+        cancel();
+        emit analysisFailed("Extraction timed out. The server or network connection took too long to respond.");
     }
 }
 

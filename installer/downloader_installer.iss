@@ -2,9 +2,9 @@
 ; Compatible with Inno Setup 6+
 
 #define MyAppName "Simplest Video Downloader"
-#define MyAppVersion "1.0.0"
-#define MyAppPublisher "Abdullah Bhatti"
-#define MyAppURL "https://github.com/1abdullahr1/simplest-video-downloader"
+#define MyAppVersion "1.1.0"
+#define MyAppPublisher "Ophira Labs"
+#define MyAppURL "https://ophiralabs.pages.dev/"
 #define MyAppExeName "VideoDownloader.exe"
 
 #ifndef SourceDir
@@ -43,7 +43,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]

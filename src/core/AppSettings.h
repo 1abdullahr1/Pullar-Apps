@@ -22,10 +22,14 @@ public:
     bool autoPasteClipboard() const;
     void setAutoPasteClipboard(bool enable);
 
+    QString themeMode() const;
+    void setThemeMode(const QString &theme);
+
     static QString findExecutable(const QString &exeName);
 
 signals:
     void settingsChanged();
+    void themeChanged(const QString &theme);
 
 private:
     explicit AppSettings(QObject *parent = nullptr);
@@ -36,6 +40,7 @@ private:
     int m_maxConcurrentDownloads = 3;
     QString m_defaultQuality = "1080p";
     bool m_autoPasteClipboard = true;
+    QString m_themeMode = "light";
 };
 
 #endif // APPSETTINGS_H
