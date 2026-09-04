@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QDateTime>
+#include <QRandomGenerator>
 
 enum class TaskStatus {
     Queued,
@@ -17,11 +18,13 @@ struct DownloadTask {
     QString id;
     QString url;
     QString title;
+    QString platform;
     QString uploader;
     QString thumbnailUrl;
     QString targetFolder;
     QString targetFilePath;
     QString formatId;
+    QString formatLabel;
     QString formatName;
 
     double progressPercent = 0.0;
@@ -35,6 +38,18 @@ struct DownloadTask {
     QDateTime createdAt;
 
     DownloadTask() : createdAt(QDateTime::currentDateTime()) {}
+
+    static QString generateId() {
+        return QString::number(QDateTime::currentMSecsSinceEpoch()) + "_" +
+               QString::number(QRandomGenerator::global()->generate() % 10000);
+    }
+
+    bool isAudioOnly() const {
+        return formatId.contains("bestaudio") ||
+               formatLabel.contains("Audio", Qt::CaseInsensitive) ||
+               targetFilePath.endsWith(".mp3", Qt::CaseInsensitive) ||
+               targetFilePath.endsWith(".m4a", Qt::CaseInsensitive);
+    }
 
     QString statusString() const {
         switch (status) {

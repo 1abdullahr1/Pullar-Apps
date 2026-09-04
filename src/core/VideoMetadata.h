@@ -52,6 +52,10 @@ struct VideoMetadata {
             .arg(mins)
             .arg(secs, 2, 10, QChar('0'));
     }
+
+    QString durationString() const {
+        return formattedDuration();
+    }
 };
 
 #endif // VIDEOMETADATA_H
