@@ -107,7 +107,7 @@ void DownloaderWorker::parseProgressLine(const QString &line)
         QString path = line.section("Destination:", 1).trimmed();
         m_finalFilePath = QDir(m_task.targetFolder).filePath(path);
     } else if (line.contains("Merging formats into")) {
-        static const QRegularExpression mergeRe(R"(Merging formats into "(.*)")");
+        static const QRegularExpression mergeRe("Merging formats into \"(.*)\"");
         auto match = mergeRe.match(line);
         if (match.hasMatch()) {
             m_finalFilePath = match.captured(1);
@@ -115,7 +115,7 @@ void DownloaderWorker::parseProgressLine(const QString &line)
     }
 
     // Example line: [download]  45.2% of 85.34MiB at  4.21MiB/s ETA 00:11
-    static const QRegularExpression progRe(R"(\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?(\S+)\s+at\s+(\S+)\s+ETA\s+(\S+))");
+    static const QRegularExpression progRe("\\[download\\]\\s+(\\d+(?:\\.\\d+)?)%\\s+of\\s+~?(\\S+)\\s+at\\s+(\\S+)\\s+ETA\\s+(\\S+)");
     auto match = progRe.match(line);
     if (match.hasMatch()) {
         double percent = match.captured(1).toDouble();
