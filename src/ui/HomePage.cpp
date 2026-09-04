@@ -283,9 +283,9 @@ void HomePage::onAnalysisFailed(const QString &errorMessage)
 void HomePage::onThumbnailDownloaded(QNetworkReply *reply)
 {
     if (reply->error() == QNetworkReply::NoError) {
-        QByteArray data = reply->readAll();
+        QByteArray imgBytes = reply->readAll();
         QPixmap pix;
-        if (pix.loadFromData(data)) {
+        if (pix.loadFromData(imgBytes)) {
             m_thumbLabel->setPixmap(pix.scaled(240, 135, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
         }
     }

@@ -4,6 +4,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QFileInfo>
+#include <QStyle>
 
 DownloadCardWidget::DownloadCardWidget(const DownloadTask &task, QWidget *parent)
     : QFrame(parent), m_task(task)
