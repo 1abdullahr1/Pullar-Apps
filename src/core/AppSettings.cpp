@@ -19,16 +19,20 @@ AppSettings::AppSettings(QObject *parent)
 
 void AppSettings::load()
 {
-    QSettings s("OphiraLabs", "VideoDownloader");
+    QSettings s("Pullar", "Pullar");
     QString defDownloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    m_downloadFolder = s.value("downloadFolder", defDownloads).toString();
+    m_downloadFolder = s.value("downloadFolder", "").toString();
+    if (m_downloadFolder.isEmpty()) {
+        QSettings legacy("OphiraLabs", "VideoDownloader");
+        m_downloadFolder = legacy.value("downloadFolder", defDownloads).toString();
+    }
     m_maxConcurrentDownloads = s.value("maxConcurrentDownloads", 3).toInt();
     m_defaultQuality = s.value("defaultQuality", "1080p").toString();
     m_autoPasteClipboard = s.value("autoPasteClipboard", true).toBool();
-    m_themeMode = s.value("themeMode", "light").toString();
+    m_themeMode = s.value("themeMode", "dark").toString();
 
     if (m_themeMode != "light" && m_themeMode != "dark") {
-        m_themeMode = "light";
+        m_themeMode = "dark";
     }
 
     if (m_downloadFolder.isEmpty() || !QDir(m_downloadFolder).exists()) {
@@ -38,7 +42,7 @@ void AppSettings::load()
 
 void AppSettings::save()
 {
-    QSettings s("OphiraLabs", "VideoDownloader");
+    QSettings s("Pullar", "Pullar");
     s.setValue("downloadFolder", m_downloadFolder);
     s.setValue("maxConcurrentDownloads", m_maxConcurrentDownloads);
     s.setValue("defaultQuality", m_defaultQuality);

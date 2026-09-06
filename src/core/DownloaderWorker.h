@@ -41,6 +41,8 @@ private:
     QString m_lastError;
     bool m_isPaused = false;
     bool m_isCanceled = false;
+    int m_currentPlaylistItem = 0;
+    int m_totalPlaylistItems = 0;
 };
 
 #endif // DOWNLOADERWORKER_H

@@ -147,9 +147,14 @@ void DownloadsPage::clearFinished()
 {
     DownloadManager::instance().clearCompleted();
     for (auto it = m_cards.begin(); it != m_cards.end();) {
-        DownloadCardWidget *card = it.value();
-        it = m_cards.erase(it);
-        card->deleteLater();
+        TaskStatus s = it.value()->status();
+        if (s == TaskStatus::Completed || s == TaskStatus::Failed || s == TaskStatus::Canceled) {
+            DownloadCardWidget *card = it.value();
+            it = m_cards.erase(it);
+            card->deleteLater();
+        } else {
+            ++it;
+        }
     }
 
     if (m_cards.isEmpty()) {

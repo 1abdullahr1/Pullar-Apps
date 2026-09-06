@@ -5,6 +5,7 @@
 #include <QTableWidget>
 #include <QLineEdit>
 #include <QPushButton>
+#include "MediaPlayerWidget.h"
 
 class HistoryPage : public QWidget {
     Q_OBJECT
@@ -17,11 +18,12 @@ public slots:
 
 private slots:
     void onSelectionChanged();
-    void openSelectedFile();
+    void playSelectedMedia();
     void openSelectedFolder();
     void copySelectedUrl();
     void clearAllHistory();
     void filterHistory(const QString &query);
+    void onCellDoubleClicked(int row, int column);
 
 private:
     void setupUi();
@@ -32,6 +34,7 @@ private:
     QPushButton *m_folderBtn;
     QPushButton *m_copyUrlBtn;
     QPushButton *m_clearBtn;
+    MediaPlayerWidget *m_playerWidget = nullptr;
 };
 
 #endif // HISTORYPAGE_H

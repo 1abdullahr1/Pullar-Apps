@@ -1,4 +1,4 @@
-# Simplest Video Downloader
+# Pullar — Don't just watch—pull it
 
 [![Build and Package](https://github.com/1abdullahr1/simplest-video-downloader/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/1abdullahr1/simplest-video-downloader/actions/workflows/build-and-release.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue.svg)](https://github.com/1abdullahr1/simplest-video-downloader)
@@ -6,28 +6,21 @@
 [![Framework](https://img.shields.io/badge/Qt-6-41CD52.svg?logo=qt)](https://www.qt.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Simplest Video Downloader** is a modern, high-speed native Windows desktop application for downloading videos and audio from **YouTube, X (Twitter), TikTok, Instagram, Facebook, Vimeo, Reddit, and direct media streams**. Built with **C++17** and **Qt 6**, it provides a clean, non-blocking interface, real-time progress metrics, and complete filesystem safety.
+**Pullar** is a high-speed, multi-connection native Windows desktop application for pulling videos, playlists, and audio from **YouTube, X (Twitter), TikTok, Instagram, Facebook, Vimeo, Reddit, and direct media streams**. Built with **C++17** and **Qt 6**, it features high-speed IDM-style multi-fragment downloading, integrated media playback, real-time metrics, and a warm, refined aesthetic.
 
 ---
 
 ## Key Features
 
-- ⚡ **Asynchronous Non-Blocking Engine**: Video analysis and downloads run on background worker threads without ever freezing the user interface.
-- 📋 **Universal Link Support**:
-  - Automatically detects links copied to the Windows clipboard.
-  - Supports YouTube, X/Twitter, TikTok, Instagram, Facebook, Vimeo, Reddit, and direct MP4/M3U8 URLs.
-- 🎬 **Quality & Format Selection**:
-  - Choose between **1080p Full HD**, **720p HD**, **480p SD**, or **Audio Only (MP3 320kbps)**.
-  - Video and audio streams are automatically merged using bundled FFmpeg.
-- 📊 **Active Queue & Progress Gauges**:
-  - Track live download percentage, download speed (MB/s), downloaded size, and ETA.
-  - Pause, resume, or cancel active downloads at any time.
-  - Configurable concurrency limit (1 to 5 simultaneous downloads).
-- 📜 **Download History**:
-  - Searchable local journal of previously downloaded media.
-  - 1-click **Play / Open File** and **Show in Folder**.
-- 📦 **Zero User Configuration**:
-  - Qt 6 runtime libraries, `windeployqt`, `yt-dlp`, and `ffmpeg` are bundled directly inside the installer and portable archive. No manual Python or CLI setup required.
+- **High-Speed Multi-Connection Engine**: IDM-style parallel stream fragment downloading, custom buffer sizes, and full saturation of available network bandwidth.
+- **YouTube Playlist Support**: Option to pull full YouTube playlists or individual videos with automated playlist numbering.
+- **Built-in Media Player**: Play completed video and audio downloads directly inside the application with seek, volume, and playback controls.
+- **Asynchronous Non-Blocking Engine**: Video extraction and downloads run on dedicated background workers without interface stalls.
+- **Clean Responsive Workflow**: Downloader page automatically resets and empties immediately after queueing a download, ready for the next link.
+- **Universal Link Support**: Supports YouTube, X/Twitter, TikTok, Instagram, Facebook, Vimeo, Reddit, and direct MP4/M3U8 streams.
+- **Quality & Format Selection**: Choose between Best Available, 1080p Full HD, 720p HD, 480p SD, or Audio Only (MP3 320kbps).
+- **Download History**: Searchable journal of previously downloaded media with direct 1-click built-in playback and folder navigation.
+- **Zero User Configuration**: Qt 6 runtime libraries, yt-dlp, and ffmpeg are bundled directly inside the installer. No manual CLI setup required.
 
 ---
 

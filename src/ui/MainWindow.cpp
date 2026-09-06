@@ -16,7 +16,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("Simplest Video Downloader");
+    setWindowTitle("Pullar - Don't just watch—pull it");
     setWindowIcon(QIcon(":/app.png"));
     setMinimumSize(880, 560);
     resize(1140, 740);
@@ -27,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&DownloadManager::instance(), &DownloadManager::queueStatusChanged,
             this, &MainWindow::updateQueueBadge);
 
-    connect(m_homePage, &HomePage::downloadStarted, this, [this]() {
+    connect(m_homePage, &HomePage::viewDownloadsRequested, this, [this]() {
         switchPage(1); // Switch to Downloads queue tab
     });
 
@@ -65,17 +65,17 @@ void MainWindow::setupUi()
     auto *brandIcon = new QLabel(sidebar);
     QPixmap iconPix(":/app.png");
     if (!iconPix.isNull()) {
-        brandIcon->setPixmap(iconPix.scaled(28, 28, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        brandIcon->setPixmap(iconPix.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
     brandLayout->addWidget(brandIcon);
 
     auto *brandTextLayout = new QVBoxLayout();
     brandTextLayout->setSpacing(0);
 
-    auto *brandTitle = new QLabel("Video Downloader", sidebar);
-    brandTitle->setStyleSheet("font-weight: 700; font-size: 14px;");
-    auto *brandSub = new QLabel("by Ophira Labs", sidebar);
-    brandSub->setStyleSheet("font-size: 11px; color: #2563eb; font-weight: 600;");
+    auto *brandTitle = new QLabel("Pullar", sidebar);
+    brandTitle->setStyleSheet("font-weight: 800; font-size: 16px;");
+    auto *brandSub = new QLabel("Don't just watch—pull it", sidebar);
+    brandSub->setStyleSheet("font-size: 10.5px; color: #7cc6fe; font-weight: 600;");
 
     brandTextLayout->addWidget(brandTitle);
     brandTextLayout->addWidget(brandSub);

@@ -14,6 +14,7 @@ public:
     explicit DownloadCardWidget(const DownloadTask &task, QWidget *parent = nullptr);
 
     QString taskId() const;
+    TaskStatus status() const { return m_task.status; }
     void updateProgress(double percent, const QString &speed, const QString &eta);
     void setStatus(TaskStatus status, const QString &finalPath = QString(), const QString &error = QString());
 

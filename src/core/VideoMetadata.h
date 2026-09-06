@@ -36,8 +36,13 @@ struct VideoMetadata {
     QString thumbnailUrl;
     QString platform;
     QVector<VideoFormat> formats;
+    bool isPlaylist = false;
+    int playlistCount = 0;
 
     QString formattedDuration() const {
+        if (isPlaylist) {
+            return QString("%1 videos").arg(playlistCount > 0 ? QString::number(playlistCount) : "Playlist");
+        }
         if (durationSeconds <= 0) return QString();
         int hours = durationSeconds / 3600;
         int mins = (durationSeconds % 3600) / 60;

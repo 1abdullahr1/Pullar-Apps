@@ -26,6 +26,8 @@ struct DownloadTask {
     QString formatId;
     QString formatLabel;
     QString formatName;
+    bool isPlaylist = false;
+    int playlistItemCount = 0;
 
     double progressPercent = 0.0;
     QString speedText = "0 KB/s";

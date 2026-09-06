@@ -54,10 +54,37 @@ void DownloaderWorker::start()
         targetDir.mkpath(".");
     }
 
-    QString outputTemplate = targetDir.filePath("%(title)s.%(ext)s");
+    QString outputTemplate;
+    if (m_task.isPlaylist) {
+        outputTemplate = targetDir.filePath("%(playlist_title,playlist)s/%(playlist_index)02d - %(title)s.%(ext)s");
+    } else {
+        outputTemplate = targetDir.filePath("%(title)s.%(ext)s");
+    }
 
     QStringList args;
     args << "--newline" << "--no-warnings";
+
+    // Playlist handling: prevent runaway loops on single videos
+    if (m_task.isPlaylist) {
+        args << "--yes-playlist";
+    } else {
+        args << "--no-playlist";
+    }
+
+    // High-speed multi-connection segmented downloading scheme (IDM-style)
+    args << "--concurrent-fragments" << "16";
+    args << "--buffer-size" << "1024K";
+    args << "--http-chunk-size" << "10M";
+    args << "--retries" << "10";
+    args << "--fragment-retries" << "10";
+    args << "--file-access-retries" << "5";
+
+    // Check if aria2c is installed for multi-connection HTTP downloads
+    QString aria2 = AppSettings::findExecutable("aria2c");
+    if (!aria2.isEmpty() && QFileInfo::exists(aria2)) {
+        args << "--downloader" << "aria2c"
+             << "--downloader-args" << "aria2c:-s 16 -x 16 -k 1M -j 16";
+    }
 
     // Set ffmpeg location if found
     if (QFileInfo::exists(ffmpeg)) {
@@ -160,6 +187,14 @@ void DownloaderWorker::parseProgressLine(const QString &line)
 {
     if (m_isCanceled) return;
 
+    // Parse playlist item index if available: [download] Downloading video 3 of 15
+    static const QRegularExpression itemRe("\\[download\\]\\s+Downloading\\s+(?:video|item)\\s+(\\d+)\\s+of\\s+(\\d+)");
+    auto itemMatch = itemRe.match(line);
+    if (itemMatch.hasMatch()) {
+        m_currentPlaylistItem = itemMatch.captured(1).toInt();
+        m_totalPlaylistItems = itemMatch.captured(2).toInt();
+    }
+
     // Check destination filename
     if (line.contains("Destination:")) {
         QString path = line.section("Destination:", 1).trimmed();
@@ -170,6 +205,8 @@ void DownloaderWorker::parseProgressLine(const QString &line)
         if (match.hasMatch()) {
             m_finalFilePath = match.captured(1);
         }
+        emit progressUpdated(m_task.id, 99.0, "Merging streams...", "00:01");
+        return;
     }
 
     // Example line: [download]  45.2% of 85.34MiB at  4.21MiB/s ETA 00:11
@@ -179,6 +216,10 @@ void DownloaderWorker::parseProgressLine(const QString &line)
         double percent = match.captured(1).toDouble();
         QString speed = match.captured(3);
         QString eta = match.captured(4);
+
+        if (m_totalPlaylistItems > 0) {
+            speed = QString("[%1/%2] %3").arg(m_currentPlaylistItem).arg(m_totalPlaylistItems).arg(speed);
+        }
         emit progressUpdated(m_task.id, percent, speed, eta);
     }
 }

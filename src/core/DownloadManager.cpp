@@ -15,6 +15,14 @@ DownloadManager::DownloadManager(QObject *parent)
 
 void DownloadManager::enqueueTask(const DownloadTask &task)
 {
+    // Prevent adding duplicates of an active or queued download
+    for (const auto &existing : m_tasks) {
+        if (existing.url == task.url &&
+            (existing.status == TaskStatus::Queued || existing.status == TaskStatus::Downloading)) {
+            return;
+        }
+    }
+
     DownloadTask t = task;
     t.status = TaskStatus::Queued;
     t.progressPercent = 0.0;

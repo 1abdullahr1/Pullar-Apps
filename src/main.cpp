@@ -11,10 +11,10 @@ int main(int argc, char *argv[])
 #endif
 
     QApplication app(argc, argv);
-    app.setApplicationName("Simplest Video Downloader");
-    app.setApplicationVersion("1.1.0");
-    app.setOrganizationName("Ophira Labs");
-    app.setOrganizationDomain("ophiralabs.pages.dev");
+    app.setApplicationName("Pullar");
+    app.setApplicationVersion("1.2.0");
+    app.setOrganizationName("Pullar");
+    app.setOrganizationDomain("pullar.app");
     app.setWindowIcon(QIcon(":/app.png"));
 
     MainWindow window;

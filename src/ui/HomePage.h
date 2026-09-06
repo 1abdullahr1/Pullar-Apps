@@ -19,9 +19,11 @@ public:
     explicit HomePage(QWidget *parent = nullptr);
 
     void setUrl(const QString &url);
+    void resetDownloader();
 
 signals:
     void downloadStarted();
+    void viewDownloadsRequested();
 
 private slots:
     void pasteFromClipboard();
@@ -40,6 +42,7 @@ private:
     QPushButton *m_pasteBtn;
     QPushButton *m_analyzeBtn;
     QLabel *m_statusLabel;
+    QPushButton *m_viewDownloadsBtn;
 
     // Video Preview Card
     QFrame *m_previewCard;
@@ -48,6 +51,7 @@ private:
     QLabel *m_creatorLabel;
     QLabel *m_durationBadge;
     QLabel *m_platformBadge;
+    QCheckBox *m_playlistCheck;
     QComboBox *m_formatCombo;
     QLineEdit *m_folderEdit;
     QPushButton *m_browseFolderBtn;

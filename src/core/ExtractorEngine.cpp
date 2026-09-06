@@ -76,11 +76,20 @@ void ExtractorEngine::analyzeUrl(const QString &url)
 
     QString ytDlpPath = AppSettings::findExecutable("yt-dlp");
     QStringList args;
-    args << "--dump-single-json" << "--no-warnings" << "--no-playlist"
-         << "--skip-download" << "--socket-timeout" << "10" << m_currentUrl;
+    args << "--dump-single-json" << "--no-warnings";
+
+    bool isPurePlaylist = m_currentUrl.contains("/playlist") || 
+                          (m_currentUrl.contains("list=") && !m_currentUrl.contains("v="));
+    if (isPurePlaylist) {
+        args << "--flat-playlist";
+    } else {
+        args << "--no-playlist";
+    }
+
+    args << "--skip-download" << "--socket-timeout" << "15" << m_currentUrl;
 
     m_process->start(ytDlpPath, args);
-    m_watchdogTimer->start(22000); // 22 second timeout
+    m_watchdogTimer->start(25000); // 25 second timeout
 }
 
 void ExtractorEngine::cancel()
@@ -148,6 +157,19 @@ void ExtractorEngine::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     meta.durationSeconds = obj["duration"].toInt(0);
     meta.thumbnailUrl = obj["thumbnail"].toString();
     meta.platform = detectPlatform(m_currentUrl);
+
+    if (obj["_type"].toString() == "playlist" || obj.contains("entries")) {
+        meta.isPlaylist = true;
+        meta.platform = "YouTube Playlist";
+        QJsonArray entries = obj["entries"].toArray();
+        meta.playlistCount = entries.isEmpty() ? obj["playlist_count"].toInt(0) : entries.size();
+        if (meta.thumbnailUrl.isEmpty() && !entries.isEmpty()) {
+            meta.thumbnailUrl = entries.first().toObject()["thumbnail"].toString();
+        }
+        if (meta.title.isEmpty() || meta.title == "Unknown Title") {
+            meta.title = "YouTube Playlist";
+        }
+    }
 
     // Standard preset formats
     VideoFormat best;

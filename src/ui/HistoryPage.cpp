@@ -79,7 +79,7 @@ void HistoryPage::setupUi()
 
     // Action Row below table
     auto *actionRow = new QHBoxLayout();
-    m_playBtn = new QPushButton("Open File", tableCard);
+    m_playBtn = new QPushButton("Play Media", tableCard);
     m_playBtn->setObjectName("primaryButton");
     m_playBtn->setEnabled(false);
 
@@ -97,9 +97,14 @@ void HistoryPage::setupUi()
 
     rootLayout->addWidget(tableCard, 1);
 
+    // Embedded Media Player Widget
+    m_playerWidget = new MediaPlayerWidget(this);
+    rootLayout->addWidget(m_playerWidget);
+
     // Connections
     connect(m_table, &QTableWidget::itemSelectionChanged, this, &HistoryPage::onSelectionChanged);
-    connect(m_playBtn, &QPushButton::clicked, this, &HistoryPage::openSelectedFile);
+    connect(m_table, &QTableWidget::cellDoubleClicked, this, &HistoryPage::onCellDoubleClicked);
+    connect(m_playBtn, &QPushButton::clicked, this, &HistoryPage::playSelectedMedia);
     connect(m_folderBtn, &QPushButton::clicked, this, &HistoryPage::openSelectedFolder);
     connect(m_copyUrlBtn, &QPushButton::clicked, this, &HistoryPage::copySelectedUrl);
     connect(m_clearBtn, &QPushButton::clicked, this, &HistoryPage::clearAllHistory);
@@ -133,18 +138,27 @@ void HistoryPage::onSelectionChanged()
     m_copyUrlBtn->setEnabled(hasSelection);
 }
 
-void HistoryPage::openSelectedFile()
+void HistoryPage::playSelectedMedia()
 {
     int row = m_table->currentRow();
     const auto &items = HistoryStorage::instance().items();
     if (row >= 0 && row < items.size()) {
         QString path = items[row].filePath;
         if (QFileInfo::exists(path)) {
-            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+            QString ext = QFileInfo(path).suffix().toLower();
+            bool isAudio = (ext == "mp3" || ext == "m4a" || ext == "wav" || ext == "flac" || ext == "aac" || ext == "ogg");
+            m_playerWidget->playMedia(path, items[row].title, isAudio);
         } else {
             QMessageBox::warning(this, "File Not Found", "The downloaded file could not be found at its original location.");
         }
     }
+}
+
+void HistoryPage::onCellDoubleClicked(int row, int column)
+{
+    Q_UNUSED(column);
+    m_table->selectRow(row);
+    playSelectedMedia();
 }
 
 void HistoryPage::openSelectedFolder()

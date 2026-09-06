@@ -1,4 +1,4 @@
-name: Build and Package Simplest Video Downloader (Windows)
+name: Build and Package Pullar (Windows)
 
 on:
   push:
@@ -121,21 +121,21 @@ jobs:
       - name: Create Portable Standalone ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\* -DestinationPath VideoDownloader_v1.1.0_Portable.zip -CompressionLevel Optimal
-          Get-Item VideoDownloader_v1.1.0_Portable.zip
+          Compress-Archive -Path dist\* -DestinationPath Pullar_v1.2.0_Portable.zip -CompressionLevel Optimal
+          Get-Item Pullar_v1.2.0_Portable.zip
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VideoDownloader-Windows-Installer
-          path: installer/Output/VideoDownloader_Setup_v1.1.0.exe
+          name: Pullar-Windows-Installer
+          path: installer/Output/Pullar_Setup_v1.2.0.exe
           retention-days: 30
 
       - name: Upload Portable ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VideoDownloader-Windows-Portable
-          path: VideoDownloader_v1.1.0_Portable.zip
+          name: Pullar-Windows-Portable
+          path: Pullar_v1.2.0_Portable.zip
           retention-days: 30
 
       - name: Publish GitHub Release
@@ -143,9 +143,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            installer/Output/VideoDownloader_Setup_v1.1.0.exe
-            VideoDownloader_v1.1.0_Portable.zip
-          name: Simplest Video Downloader ${{ github.ref_name }}
+            installer/Output/Pullar_Setup_v1.2.0.exe
+            Pullar_v1.2.0_Portable.zip
+          name: Pullar ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true

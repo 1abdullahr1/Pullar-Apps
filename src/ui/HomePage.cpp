@@ -24,6 +24,7 @@ HomePage::HomePage(QWidget *parent)
     connect(m_urlEdit, &QLineEdit::returnPressed, this, &HomePage::startAnalyze);
     connect(m_browseFolderBtn, &QPushButton::clicked, this, &HomePage::browseDownloadFolder);
     connect(m_downloadBtn, &QPushButton::clicked, this, &HomePage::startDownload);
+    connect(m_viewDownloadsBtn, &QPushButton::clicked, this, &HomePage::viewDownloadsRequested);
 
     connect(m_extractor, &ExtractorEngine::analysisStarted, this, &HomePage::onAnalysisStarted);
     connect(m_extractor, &ExtractorEngine::metadataReady, this, &HomePage::onMetadataReady);
@@ -97,12 +98,22 @@ void HomePage::setupUi()
     pillsRow->addStretch();
     inputLayout->addLayout(pillsRow);
 
-    // Status / Message Label
+    // Status / Message Row with View Downloads Button
+    auto *statusRow = new QHBoxLayout();
+    statusRow->setSpacing(10);
+
     m_statusLabel = new QLabel(inputCard);
-    m_statusLabel->setStyleSheet("font-size: 12.5px; font-weight: 500;");
+    m_statusLabel->setStyleSheet("font-size: 13px; font-weight: 600;");
     m_statusLabel->setWordWrap(true);
     m_statusLabel->setVisible(false);
-    inputLayout->addWidget(m_statusLabel);
+    statusRow->addWidget(m_statusLabel, 1);
+
+    m_viewDownloadsBtn = new QPushButton("View Downloads Queue", inputCard);
+    m_viewDownloadsBtn->setFixedWidth(170);
+    m_viewDownloadsBtn->setVisible(false);
+    statusRow->addWidget(m_viewDownloadsBtn);
+
+    inputLayout->addLayout(statusRow);
 
     layout->addWidget(inputCard);
 
@@ -189,6 +200,12 @@ void HomePage::setupUi()
     settingsGrid->addWidget(m_formatCombo, 0, 1);
     settingsGrid->addWidget(folderLabel, 1, 0);
     settingsGrid->addLayout(folderRow, 1, 1);
+
+    m_playlistCheck = new QCheckBox("Download entire playlist", m_previewCard);
+    m_playlistCheck->setObjectName("playlistCheckBox");
+    m_playlistCheck->setStyleSheet("font-weight: 600; font-size: 13px; color: #7cc6fe; padding: 4px 0;");
+    m_playlistCheck->setVisible(false);
+    settingsGrid->addWidget(m_playlistCheck, 2, 1);
 
     previewLayout->addLayout(settingsGrid);
 
@@ -285,6 +302,20 @@ void HomePage::onMetadataReady(const VideoMetadata &meta)
         }
     }
 
+    // Playlist option check
+    if (meta.isPlaylist) {
+        m_playlistCheck->setText(QString("Download entire playlist (%1 videos)").arg(meta.playlistCount > 0 ? QString::number(meta.playlistCount) : "all"));
+        m_playlistCheck->setChecked(true);
+        m_playlistCheck->setVisible(true);
+    } else if (m_urlEdit->text().contains("list=")) {
+        m_playlistCheck->setText("Download entire playlist containing this video");
+        m_playlistCheck->setChecked(false);
+        m_playlistCheck->setVisible(true);
+    } else {
+        m_playlistCheck->setVisible(false);
+        m_playlistCheck->setChecked(false);
+    }
+
     // Reset and fetch thumbnail
     m_thumbLabel->setPixmap(QPixmap());
     m_thumbLabel->setText("Preview");
@@ -300,8 +331,9 @@ void HomePage::onAnalysisFailed(const QString &errorMessage)
     m_analyzeBtn->setEnabled(true);
     m_analyzeBtn->setText("Analyze");
     m_statusLabel->setText(errorMessage);
-    m_statusLabel->setStyleSheet("color: #dc2626;");
+    m_statusLabel->setStyleSheet("color: #ff8080;");
     m_statusLabel->setVisible(true);
+    m_viewDownloadsBtn->setVisible(false);
     m_previewCard->setVisible(false);
 }
 
@@ -330,6 +362,8 @@ void HomePage::startDownload()
 {
     if (m_currentMeta.url.isEmpty()) return;
 
+    m_downloadBtn->setEnabled(false);
+
     DownloadTask task;
     task.id = DownloadTask::generateId();
     task.url = m_currentMeta.url;
@@ -338,7 +372,45 @@ void HomePage::startDownload()
     task.targetFolder = m_folderEdit->text();
     task.formatId = m_formatCombo->currentData().toString();
     task.formatLabel = m_formatCombo->currentText();
+    task.isPlaylist = (m_playlistCheck && m_playlistCheck->isVisible() && m_playlistCheck->isChecked());
+    task.playlistItemCount = m_currentMeta.playlistCount;
 
     DownloadManager::instance().enqueueTask(task);
+
+    // Clean and reset downloader interface immediately for the next video
+    m_urlEdit->clear();
+    m_previewCard->setVisible(false);
+    m_thumbLabel->setPixmap(QPixmap());
+    m_currentMeta = VideoMetadata();
+    if (m_playlistCheck) {
+        m_playlistCheck->setChecked(false);
+        m_playlistCheck->setVisible(false);
+    }
+    m_downloadBtn->setEnabled(true);
+
+    // Show clean, professional notification with button to open active queue
+    m_statusLabel->setText("Download added to queue. Interface ready for next video.");
+    m_statusLabel->setStyleSheet("color: #7cc6fe; font-size: 13px; font-weight: 600; padding: 4px 0;");
+    m_statusLabel->setVisible(true);
+    m_viewDownloadsBtn->setVisible(true);
+
+    m_urlEdit->setFocus();
+
     emit downloadStarted();
+}
+
+void HomePage::resetDownloader()
+{
+    m_urlEdit->clear();
+    m_previewCard->setVisible(false);
+    m_thumbLabel->setPixmap(QPixmap());
+    m_currentMeta = VideoMetadata();
+    if (m_playlistCheck) {
+        m_playlistCheck->setChecked(false);
+        m_playlistCheck->setVisible(false);
+    }
+    m_statusLabel->setVisible(false);
+    m_viewDownloadsBtn->setVisible(false);
+    m_downloadBtn->setEnabled(true);
+    m_urlEdit->setFocus();
 }
