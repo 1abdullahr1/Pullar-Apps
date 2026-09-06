@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QFrame>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
