@@ -134,6 +134,27 @@ void SettingsPage::setupUi()
     toolsLayout->addLayout(toolsGrid);
     rootLayout->addWidget(toolsCard);
 
+    // Support & Software Inquiries Card
+    auto *supportCard = new QFrame(container);
+    supportCard->setObjectName("cardFrame");
+    auto *supportLayout = new QVBoxLayout(supportCard);
+    supportLayout->setContentsMargins(16, 16, 16, 16);
+    supportLayout->setSpacing(8);
+
+    auto *supportTitle = new QLabel("Technical Help & Project Inquiries", supportCard);
+    supportTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #7cc6fe;");
+    supportLayout->addWidget(supportTitle);
+
+    auto *supportDesc = new QLabel(
+        "For bug reports, technical help, or consulting regarding software projects:<br>"
+        "<a href=\"https://abdullahcs.pages.dev/\" style=\"color: #7cc6fe; text-decoration: none; font-weight: bold;\">"
+        "https://abdullahcs.pages.dev/</a>", supportCard);
+    supportDesc->setOpenExternalLinks(true);
+    supportDesc->setStyleSheet("font-size: 12.5px; line-height: 1.4;");
+    supportLayout->addWidget(supportDesc);
+
+    rootLayout->addWidget(supportCard);
+
     rootLayout->addStretch();
 
     scrollArea->setWidget(container);

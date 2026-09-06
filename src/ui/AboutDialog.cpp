@@ -9,7 +9,7 @@ AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle("About Pullar");
-    setFixedSize(500, 370);
+    setFixedSize(500, 420);
     setupUi();
 }
 
@@ -57,8 +57,16 @@ void AboutDialog::setupUi()
     featuresLabel->setStyleSheet("font-size: 12px; color: #7cc6fe;");
     mainLayout->addWidget(featuresLabel);
 
+    auto *contactLabel = new QLabel(
+        "Technical Help, Bug Reports & Software Inquiries:<br>"
+        "<a href=\"https://abdullahcs.pages.dev/\" style=\"color: #7cc6fe; text-decoration: none; font-weight: bold;\">"
+        "https://abdullahcs.pages.dev/</a>", this);
+    contactLabel->setOpenExternalLinks(true);
+    contactLabel->setStyleSheet("font-size: 12px; margin-top: 4px;");
+    mainLayout->addWidget(contactLabel);
+
     auto *creditsLabel = new QLabel("Developed by Abdullah Bhatti. Licensed under the MIT License.", this);
-    creditsLabel->setStyleSheet("font-size: 12px; margin-top: 2px;");
+    creditsLabel->setStyleSheet("font-size: 12px; margin-top: 2px; color: #c4aca0;");
     mainLayout->addWidget(creditsLabel);
 
     mainLayout->addStretch();

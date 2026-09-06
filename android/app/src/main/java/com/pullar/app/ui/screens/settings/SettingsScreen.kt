@@ -269,6 +269,19 @@ fun SettingsScreen(
                     color = TextMuted,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Technical Help & Software Projects:",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LightApricot
+                )
+                Text(
+                    text = "https://abdullahcs.pages.dev/",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MayaBlue
+                )
             }
         }
     }
