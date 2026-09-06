@@ -4,7 +4,7 @@
 #define MyAppName "Pullar"
 #define MyAppVersion "1.2.0"
 #define MyAppPublisher "Abdullah Bhatti"
-#define MyAppURL "https://github.com/1abdullahr1/simplest-video-downloader"
+#define MyAppURL "https://github.com/1abdullahr1/Pullar-Apps"
 #define MyAppExeName "VideoDownloader.exe"
 
 #ifndef SourceDir
