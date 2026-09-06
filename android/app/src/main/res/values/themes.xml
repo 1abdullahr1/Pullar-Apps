@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Pullar" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/coffee_bean</item>
+        <item name="android:navigationBarColor">@color/coffee_bean</item>
+        <item name="android:windowBackground">@color/coffee_bean</item>
+    </style>
+</resources>
