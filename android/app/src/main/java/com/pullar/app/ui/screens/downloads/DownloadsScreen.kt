@@ -27,11 +27,15 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,27 +48,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pullar.app.data.model.DownloadEntity
 import com.pullar.app.data.model.DownloadStatus
-import com.pullar.app.ui.theme.CoffeeBean
+import com.pullar.app.ui.components.MediaPlayerCard
 import com.pullar.app.ui.theme.ErrorRed
-import com.pullar.app.ui.theme.LightApricot
 import com.pullar.app.ui.theme.MayaBlue
-import com.pullar.app.ui.theme.SurfaceBorder
-import com.pullar.app.ui.theme.SurfaceCard
-import com.pullar.app.ui.theme.SurfaceDark
-import com.pullar.app.ui.theme.TextMuted
 import com.pullar.app.ui.theme.ToffeeBrown
 
 @Composable
 fun DownloadsScreen(
     viewModel: DownloadsViewModel = viewModel(),
-    onPlayMedia: (String) -> Unit
+    onPlayMedia: (String) -> Unit = {}
 ) {
     val downloads by viewModel.activeDownloads.collectAsState()
+    var playingTask by remember { mutableStateOf<DownloadEntity?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CoffeeBean)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         // Header
@@ -72,14 +72,25 @@ fun DownloadsScreen(
             text = "Active Downloads",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = MayaBlue
+            color = MaterialTheme.colorScheme.primary
         )
         Text(
             text = "${downloads.size} task(s) currently processing",
             fontSize = 13.sp,
-            color = TextMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+
+        // Inline Material 3 Card Player if a task is being played
+        playingTask?.let { task ->
+            MediaPlayerCard(
+                filePathOrUrl = task.filePath.ifBlank { task.url },
+                title = task.title,
+                isAudioOnly = task.isAudioOnly,
+                onClose = { playingTask = null },
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
 
         if (downloads.isEmpty()) {
             Box(
@@ -93,13 +104,13 @@ fun DownloadsScreen(
                         text = "No Active Downloads",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = LightApricot
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Paste a link in the Downloader tab to start a download.",
                         fontSize = 13.sp,
-                        color = TextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -112,7 +123,7 @@ fun DownloadsScreen(
                         task = task,
                         onCancel = { viewModel.cancelDownload(task) },
                         onRetry = { viewModel.retryDownload(task) },
-                        onPlay = { onPlayMedia(task.filePath) }
+                        onPlay = { playingTask = task }
                     )
                 }
             }
@@ -130,8 +141,8 @@ fun DownloadCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, SurfaceBorder, RoundedCornerShape(14.dp)),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(14.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -158,7 +169,7 @@ fun DownloadCard(
                         text = task.title,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = LightApricot,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -170,9 +181,9 @@ fun DownloadCard(
                             text = task.qualityLabel,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MayaBlue,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .background(CoffeeBean, RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                         if (task.isPlaylist) {
@@ -182,7 +193,7 @@ fun DownloadCard(
                                 fontWeight = FontWeight.Medium,
                                 color = ToffeeBrown,
                                 modifier = Modifier
-                                    .background(CoffeeBean, RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -194,7 +205,7 @@ fun DownloadCard(
                     Icon(
                         Icons.Default.Cancel,
                         contentDescription = "Cancel",
-                        tint = TextMuted
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -208,8 +219,8 @@ fun DownloadCard(
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp)),
-                color = MayaBlue,
-                trackColor = SurfaceDark
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surface
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -233,14 +244,14 @@ fun DownloadCard(
                     text = statusText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (task.status == DownloadStatus.FAILED) ErrorRed else MayaBlue
+                    color = if (task.status == DownloadStatus.FAILED) ErrorRed else MaterialTheme.colorScheme.primary
                 )
 
                 if (task.speed.isNotBlank()) {
                     Text(
                         text = "${task.speed}  ${task.eta}",
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -250,7 +261,7 @@ fun DownloadCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = onRetry,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MayaBlue),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -261,7 +272,10 @@ fun DownloadCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onPlay,
-                    colors = ButtonDefaults.buttonColors(containerColor = MayaBlue, contentColor = CoffeeBean),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))

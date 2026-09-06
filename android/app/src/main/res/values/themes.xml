@@ -1,4 +1,10 @@
 <resources>
+    <style name="Theme.Pullar.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/coffee_bean</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Pullar</item>
+    </style>
+
     <style name="Theme.Pullar" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@color/coffee_bean</item>
         <item name="android:navigationBarColor">@color/coffee_bean</item>

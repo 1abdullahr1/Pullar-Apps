@@ -29,12 +29,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,14 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pullar.app.data.model.DownloadEntity
-import com.pullar.app.ui.theme.CoffeeBean
-import com.pullar.app.ui.theme.LightApricot
-import com.pullar.app.ui.theme.MayaBlue
-import com.pullar.app.ui.theme.SurfaceBorder
-import com.pullar.app.ui.theme.SurfaceCard
-import com.pullar.app.ui.theme.SurfaceDark
-import com.pullar.app.ui.theme.TextMuted
-import com.pullar.app.ui.theme.ToffeeBrown
+import com.pullar.app.ui.components.MediaPlayerCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -62,16 +59,17 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(),
-    onPlayMedia: (String) -> Unit
+    onPlayMedia: (String) -> Unit = {}
 ) {
     val items by viewModel.historyItems.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val context = LocalContext.current
+    var playingItem by remember { mutableStateOf<DownloadEntity?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CoffeeBean)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         // Header
@@ -85,12 +83,12 @@ fun HistoryScreen(
                     text = "Download History",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MayaBlue
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "${items.size} completed download(s)",
                     fontSize = 13.sp,
-                    color = TextMuted
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (items.isNotEmpty()) {
@@ -98,10 +96,21 @@ fun HistoryScreen(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Clear All History",
-                        tint = TextMuted
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+        }
+
+        // Inline Material 3 Card Player if an item is selected for playback
+        playingItem?.let { item ->
+            Spacer(modifier = Modifier.height(14.dp))
+            MediaPlayerCard(
+                filePathOrUrl = item.filePath.ifBlank { item.url },
+                title = item.title,
+                isAudioOnly = item.isAudioOnly,
+                onClose = { playingItem = null }
+            )
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -110,26 +119,26 @@ fun HistoryScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.onSearchQueryChanged(it) },
-            label = { Text("Search by title...", color = TextMuted) },
+            label = { Text("Search by title...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted)
+                Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextMuted)
+                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = LightApricot,
-                unfocusedTextColor = LightApricot,
-                focusedBorderColor = MayaBlue,
-                unfocusedBorderColor = SurfaceBorder,
-                focusedContainerColor = SurfaceDark,
-                unfocusedContainerColor = SurfaceDark
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
             ),
             shape = RoundedCornerShape(12.dp)
         )
@@ -148,13 +157,13 @@ fun HistoryScreen(
                         text = if (searchQuery.isNotBlank()) "No Matching Downloads" else "No Download History",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = LightApricot
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = if (searchQuery.isNotBlank()) "Try searching with a different term." else "Completed downloads will be saved here.",
                         fontSize = 13.sp,
-                        color = TextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -165,7 +174,7 @@ fun HistoryScreen(
                 items(items, key = { it.id }) { item ->
                     HistoryCard(
                         item = item,
-                        onPlay = { onPlayMedia(item.filePath.ifBlank { item.url }) },
+                        onPlay = { playingItem = item },
                         onShare = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
@@ -174,7 +183,12 @@ fun HistoryScreen(
                             }
                             context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
                         },
-                        onDelete = { viewModel.deleteItem(item) }
+                        onDelete = {
+                            if (playingItem?.id == item.id) {
+                                playingItem = null
+                            }
+                            viewModel.deleteItem(item)
+                        }
                     )
                 }
             }
@@ -192,8 +206,8 @@ fun HistoryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, SurfaceBorder, RoundedCornerShape(14.dp)),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(14.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -220,7 +234,7 @@ fun HistoryCard(
                         text = item.title,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = LightApricot,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -232,16 +246,16 @@ fun HistoryCard(
                             text = item.qualityLabel,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MayaBlue,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .background(CoffeeBean, RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                         val dateFormatted = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(item.createdAt))
                         Text(
                             text = dateFormatted,
                             fontSize = 11.sp,
-                            color = TextMuted,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }
@@ -260,8 +274,8 @@ fun HistoryCard(
                 Button(
                     onClick = onPlay,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MayaBlue,
-                        contentColor = CoffeeBean
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -272,10 +286,10 @@ fun HistoryCard(
 
                 Row {
                     IconButton(onClick = onShare) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", tint = TextMuted)
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = TextMuted)
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

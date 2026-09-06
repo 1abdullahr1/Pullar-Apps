@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -29,12 +30,6 @@ import com.pullar.app.ui.screens.downloads.DownloadsScreen
 import com.pullar.app.ui.screens.history.HistoryScreen
 import com.pullar.app.ui.screens.player.MediaPlayerScreen
 import com.pullar.app.ui.screens.settings.SettingsScreen
-import com.pullar.app.ui.theme.CoffeeBean
-import com.pullar.app.ui.theme.LightApricot
-import com.pullar.app.ui.theme.MayaBlue
-import com.pullar.app.ui.theme.SurfaceCard
-import com.pullar.app.ui.theme.TextMuted
-import com.pullar.app.ui.theme.ToffeeBrown
 import java.net.URLDecoder
 
 data class NavItem(
@@ -64,8 +59,8 @@ fun PullarApp(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = SurfaceCard,
-                    contentColor = LightApricot
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ) {
                     navItems.forEach { item ->
                         val selected = currentRoute == item.route
@@ -83,18 +78,18 @@ fun PullarApp(
                             icon = { Icon(item.icon, contentDescription = item.title) },
                             label = { Text(item.title) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = CoffeeBean,
-                                selectedTextColor = MayaBlue,
-                                indicatorColor = MayaBlue,
-                                unselectedIconColor = TextMuted,
-                                unselectedTextColor = TextMuted
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
                 }
             }
         },
-        containerColor = CoffeeBean
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -103,6 +98,7 @@ fun PullarApp(
         ) {
             composable(Screen.Downloader.route) {
                 DownloaderScreen(
+                    sharedUrl = sharedUrl,
                     onNavigateToDownloads = {
                         navController.navigate(Screen.Downloads.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
