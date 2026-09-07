@@ -307,6 +307,16 @@ fun DownloadCard(
 
             // Retry or Play Media button
             if (task.status == DownloadStatus.FAILED) {
+                if (task.errorMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = task.errorMessage,
+                        fontSize = 11.sp,
+                        color = ErrorRed,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = onRetry,

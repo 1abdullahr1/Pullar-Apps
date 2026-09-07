@@ -30,6 +30,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 
 class DownloadForegroundService : Service() {
 
@@ -125,9 +126,47 @@ class DownloadForegroundService : Service() {
 
     private suspend fun processSingleTask(task: DownloadEntity, dao: com.pullar.app.data.dao.DownloadDao) {
         val taskId = task.id
+        var effectiveTitle = task.title
         val outputDir = StorageUtils.getDownloadDirectory(applicationContext, task.playlistTitle)
 
         try {
+            // Background metadata resolution if task has placeholder title
+            if (task.uploader.isBlank() || task.title.startsWith("Shared Video") || task.title.startsWith("Video Download")) {
+                dao.updateStatus(taskId, DownloadStatus.ANALYZING)
+                notificationManager.notify(
+                    NOTIFICATION_ID,
+                    buildNotification("Pullar Downloader", "Resolving stream details...", 0)
+                )
+
+                val quick = YoutubeDLEngine.quickExtractMetadata(task.url)
+                if (quick != null) {
+                    effectiveTitle = quick.title
+                    dao.updateMetadata(taskId, quick.title, quick.uploader, quick.thumbnailUrl)
+
+                    // If it was a playlist link with downloadEntirePlaylist, enqueue remaining items
+                    if (task.isPlaylist && quick.playlistItems.size > 1) {
+                        val remainingEntities = quick.playlistItems.drop(1).mapIndexed { index, item ->
+                            DownloadEntity(
+                                id = UUID.randomUUID().toString(),
+                                url = item.url,
+                                title = item.title,
+                                uploader = quick.uploader,
+                                thumbnailUrl = item.thumbnailUrl.ifBlank { quick.thumbnailUrl },
+                                formatId = task.formatId,
+                                qualityLabel = task.qualityLabel,
+                                isPlaylist = true,
+                                playlistTitle = quick.title,
+                                playlistIndex = index + 2,
+                                playlistTotal = quick.playlistItems.size,
+                                isAudioOnly = task.isAudioOnly,
+                                status = DownloadStatus.QUEUED
+                            )
+                        }
+                        dao.insertAll(remainingEntities)
+                    }
+                }
+            }
+
             dao.updateStatus(taskId, DownloadStatus.DOWNLOADING)
             val request = YoutubeDLEngine.buildDownloadRequest(task, outputDir)
 
@@ -143,7 +182,7 @@ class DownloadForegroundService : Service() {
 
                 notificationManager.notify(
                     NOTIFICATION_ID,
-                    buildNotification(task.title, subtext, progress.toInt())
+                    buildNotification(effectiveTitle, subtext, progress.toInt())
                 )
 
                 serviceScope.launch {
@@ -160,9 +199,9 @@ class DownloadForegroundService : Service() {
                 }
             }
 
-            // Task execution completed - locate actual file on disk
-            val downloadedFile = findDownloadedFile(outputDir, task.title)
-            val finalPath = downloadedFile?.absolutePath ?: File(outputDir, "${task.title}.mp4").absolutePath
+            // Task completed - discover downloaded file on disk
+            val downloadedFile = findDownloadedFile(outputDir, effectiveTitle)
+            val finalPath = downloadedFile?.absolutePath ?: File(outputDir, "$effectiveTitle.mp4").absolutePath
             val finalSize = downloadedFile?.length() ?: 0L
 
             dao.updateCompleted(
@@ -176,11 +215,23 @@ class DownloadForegroundService : Service() {
                 StorageUtils.scanMediaFile(applicationContext, downloadedFile)
             }
 
-            showCompletionNotification(task.title)
+            showCompletionNotification(effectiveTitle)
 
         } catch (e: Exception) {
-            Log.e("DownloadService", "Error downloading task $taskId: ${e.message}", e)
-            dao.updateFailed(taskId, errorMessage = e.message ?: "Download failed")
+            val errorMsg = e.message ?: "Download failed"
+            Log.e("DownloadService", "Error downloading task $taskId: $errorMsg", e)
+            dao.updateFailed(taskId, errorMessage = errorMsg)
+
+            // Auto-sync yt-dlp binary if failure indicates cipher/extractor discrepancy
+            if (errorMsg.contains("bot", ignoreCase = true) ||
+                errorMsg.contains("403", ignoreCase = true) ||
+                errorMsg.contains("cipher", ignoreCase = true) ||
+                errorMsg.contains("challenge", ignoreCase = true)
+            ) {
+                serviceScope.launch {
+                    YoutubeDLEngine.updateEngine(applicationContext)
+                }
+            }
         }
     }
 

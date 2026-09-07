@@ -15,6 +15,7 @@ class PullarApplication : Application() {
         super.onCreate()
         applicationScope.launch {
             YoutubeDLEngine.init(this@PullarApplication)
+            YoutubeDLEngine.updateEngine(this@PullarApplication)
         }
     }
 }

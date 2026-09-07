@@ -60,6 +60,9 @@ interface DownloadDao {
         total: Long
     )
 
+    @Query("UPDATE downloads SET title = :title, uploader = :uploader, thumbnailUrl = :thumbnailUrl WHERE id = :id")
+    suspend fun updateMetadata(id: String, title: String, uploader: String, thumbnailUrl: String)
+
     @Query("UPDATE downloads SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: String, status: DownloadStatus)
 

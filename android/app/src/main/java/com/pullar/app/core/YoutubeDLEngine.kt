@@ -3,8 +3,8 @@ package com.pullar.app.core
 import android.content.Context
 import android.util.Log
 import com.pullar.app.data.model.DownloadEntity
-import com.pullar.app.data.model.FormatOption
 import com.pullar.app.data.model.PlaylistItem
+import com.pullar.app.data.model.PresetFormats
 import com.pullar.app.data.model.VideoMetadata
 import com.pullar.app.util.FormatUtils
 import com.yausername.ffmpeg.FFmpeg
@@ -15,6 +15,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+
+data class QuickMetadata(
+    val title: String,
+    val uploader: String,
+    val durationSeconds: Long,
+    val thumbnailUrl: String,
+    val isPlaylist: Boolean,
+    val playlistItems: List<PlaylistItem> = emptyList()
+)
 
 object YoutubeDLEngine {
 
@@ -49,42 +58,38 @@ object YoutubeDLEngine {
         return url.contains("list=") || url.contains("/playlist") || url.contains("/sets/")
     }
 
-    suspend fun extractInfo(url: String): Result<VideoMetadata> = withContext(Dispatchers.IO) {
+    suspend fun quickExtractMetadata(url: String): QuickMetadata? = withContext(Dispatchers.IO) {
         try {
-            val isPlaylist = isPlaylistUrl(url)
             val request = YoutubeDLRequest(url)
             request.addOption("--dump-single-json")
             request.addOption("--no-warnings")
             request.addOption("--flat-playlist")
-            request.addOption("--socket-timeout", "25")
+            request.addOption("--extractor-args", "youtube:player_client=android,web")
+            request.addOption("--compat-options", "no-youtube-unavailable-videos")
+            request.addOption("--socket-timeout", "20")
 
             val response: YoutubeDLResponse = YoutubeDL.getInstance().execute(request)
-            val output = response.out
+            val json = JSONObject(response.out)
 
-            val json = JSONObject(output)
             val title = json.optString("title", "Unknown Title")
             val uploader = json.optString("uploader", json.optString("channel", ""))
-            val durationSeconds = json.optLong("duration", 0L)
-            val durationFormatted = FormatUtils.formatDuration(durationSeconds)
+            val duration = json.optLong("duration", 0L)
 
-            // Extract thumbnail
-            var thumbnailUrl = json.optString("thumbnail", "")
-            if (thumbnailUrl.isBlank() && json.has("thumbnails")) {
+            var thumb = json.optString("thumbnail", "")
+            if (thumb.isBlank() && json.has("thumbnails")) {
                 val thumbs = json.optJSONArray("thumbnails")
                 if (thumbs != null && thumbs.length() > 0) {
-                    val lastThumb = thumbs.optJSONObject(thumbs.length() - 1)
-                    thumbnailUrl = lastThumb?.optString("url", "") ?: ""
+                    val last = thumbs.optJSONObject(thumbs.length() - 1)
+                    thumb = last?.optString("url", "") ?: ""
                 }
             }
 
-            // Playlist items extraction
-            val playlistItems = mutableListOf<PlaylistItem>()
-            var playlistCount = 0
-
+            val items = mutableListOf<PlaylistItem>()
+            var isPlaylist = isPlaylistUrl(url)
             if (json.has("entries")) {
                 val entries = json.optJSONArray("entries")
                 if (entries != null) {
-                    playlistCount = entries.length()
+                    isPlaylist = true
                     for (i in 0 until entries.length()) {
                         val entry = entries.optJSONObject(i) ?: continue
                         val itemTitle = entry.optString("title", "Video #${i + 1}")
@@ -96,7 +101,7 @@ object YoutubeDLEngine {
                         val itemDuration = entry.optLong("duration", 0L)
                         val itemThumb = entry.optString("thumbnail", "")
 
-                        playlistItems.add(
+                        items.add(
                             PlaylistItem(
                                 id = itemId.ifBlank { "item_$i" },
                                 title = itemTitle,
@@ -111,63 +116,55 @@ object YoutubeDLEngine {
                 }
             }
 
-            val formats = listOf(
-                FormatOption(
-                    formatId = "bestvideo+bestaudio/best",
-                    label = "Best Quality (MP4)",
-                    resolution = "Highest Available",
-                    extension = "mp4",
-                    isAudioOnly = false,
-                    note = "Full quality merged with FFmpeg"
-                ),
-                FormatOption(
-                    formatId = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
-                    label = "1080p Full HD",
-                    resolution = "1920x1080",
-                    extension = "mp4",
-                    isAudioOnly = false,
-                    note = "High Definition MP4"
-                ),
-                FormatOption(
-                    formatId = "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
-                    label = "720p HD",
-                    resolution = "1280x720",
-                    extension = "mp4",
-                    isAudioOnly = false,
-                    note = "Standard High Definition"
-                ),
-                FormatOption(
-                    formatId = "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
-                    label = "480p SD",
-                    resolution = "854x480",
-                    extension = "mp4",
-                    isAudioOnly = false,
-                    note = "Standard Definition"
-                ),
-                FormatOption(
-                    formatId = "bestaudio/best",
-                    label = "Audio Only (MP3)",
-                    resolution = "Audio 320kbps",
-                    extension = "mp3",
-                    isAudioOnly = true,
-                    note = "Extracted high quality MP3"
-                )
+            QuickMetadata(
+                title = title,
+                uploader = uploader,
+                durationSeconds = duration,
+                thumbnailUrl = thumb,
+                isPlaylist = isPlaylist,
+                playlistItems = items
             )
+        } catch (e: Exception) {
+            Log.w(TAG, "Quick metadata extraction failed: ${e.message}")
+            null
+        }
+    }
 
-            Result.success(
-                VideoMetadata(
-                    url = url,
-                    title = title,
-                    uploader = uploader,
-                    durationSeconds = durationSeconds,
-                    durationFormatted = durationFormatted,
-                    thumbnailUrl = thumbnailUrl,
-                    isPlaylist = isPlaylist || playlistCount > 0,
-                    playlistCount = playlistCount,
-                    playlistItems = playlistItems,
-                    availableFormats = formats
+    suspend fun extractInfo(url: String): Result<VideoMetadata> = withContext(Dispatchers.IO) {
+        try {
+            val quick = quickExtractMetadata(url)
+            if (quick != null) {
+                Result.success(
+                    VideoMetadata(
+                        url = url,
+                        title = quick.title,
+                        uploader = quick.uploader,
+                        durationSeconds = quick.durationSeconds,
+                        durationFormatted = FormatUtils.formatDuration(quick.durationSeconds),
+                        thumbnailUrl = quick.thumbnailUrl,
+                        isPlaylist = quick.isPlaylist,
+                        playlistCount = quick.playlistItems.size,
+                        playlistItems = quick.playlistItems,
+                        availableFormats = PresetFormats.allPresets
+                    )
                 )
-            )
+            } else {
+                // Fallback basic metadata with instant presets
+                Result.success(
+                    VideoMetadata(
+                        url = url,
+                        title = "Video Link",
+                        uploader = "",
+                        durationSeconds = 0L,
+                        durationFormatted = "",
+                        thumbnailUrl = "",
+                        isPlaylist = isPlaylistUrl(url),
+                        playlistCount = 0,
+                        playlistItems = emptyList(),
+                        availableFormats = PresetFormats.allPresets
+                    )
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Extraction failed: ${e.message}", e)
             Result.failure(e)
@@ -180,10 +177,15 @@ object YoutubeDLEngine {
     ): YoutubeDLRequest {
         val request = YoutubeDLRequest(item.url)
 
-        val destinationTemplate = "${outputDirectory.absolutePath}/%(title)s.%(ext)s"
+        val destinationTemplate = "${outputDirectory.absolutePath}/%(title).180B.%(ext)s"
         request.addOption("-o", destinationTemplate)
+        request.addOption("--windows-filenames")
 
-        // Safe mobile networking scheme
+        // YouTube mobile API client routing to bypass bot detection and SABR throttling
+        request.addOption("--extractor-args", "youtube:player_client=android,web")
+        request.addOption("--compat-options", "no-youtube-unavailable-videos")
+
+        // Safe mobile networking parameters
         request.addOption("--retries", "5")
         request.addOption("--fragment-retries", "5")
         request.addOption("--socket-timeout", "30")
@@ -191,16 +193,28 @@ object YoutubeDLEngine {
         request.addOption("--no-warnings")
         request.addOption("--no-check-certificates")
 
-        // Single video enforcement per discrete task
+        // Single video enforcement per task
         request.addOption("--no-playlist")
 
-        // Format & Audio handling
+        // Format and Audio stream handling
         if (item.isAudioOnly) {
             request.addOption("-x")
-            request.addOption("--audio-format", "mp3")
-            request.addOption("--audio-quality", "0")
+            when (item.formatId) {
+                "mp3" -> {
+                    request.addOption("--audio-format", "mp3")
+                    request.addOption("--audio-quality", "0")
+                }
+                "m4a" -> {
+                    request.addOption("--audio-format", "m4a")
+                    request.addOption("--audio-quality", "0")
+                }
+                else -> {
+                    request.addOption("-f", "ba/b")
+                }
+            }
         } else {
-            request.addOption("-f", item.formatId)
+            val formatSelector = if (item.formatId.isNotBlank()) item.formatId else "bv*+ba/b"
+            request.addOption("-f", formatSelector)
             request.addOption("--merge-output-format", "mp4")
         }
 

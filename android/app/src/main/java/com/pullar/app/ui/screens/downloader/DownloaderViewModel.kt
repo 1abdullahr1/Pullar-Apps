@@ -8,6 +8,8 @@ import com.pullar.app.data.database.PullarDatabase
 import com.pullar.app.data.model.DownloadEntity
 import com.pullar.app.data.model.DownloadStatus
 import com.pullar.app.data.model.FormatOption
+import com.pullar.app.data.model.MediaType
+import com.pullar.app.data.model.PresetFormats
 import com.pullar.app.data.model.VideoMetadata
 import com.pullar.app.data.preferences.ThemePreferences
 import com.pullar.app.data.repository.DownloadRepository
@@ -23,9 +25,10 @@ import java.util.UUID
 
 data class DownloaderUiState(
     val urlInput: String = "",
+    val mediaType: MediaType = MediaType.VIDEO,
+    val selectedFormat: FormatOption = PresetFormats.VideoBest,
     val isAnalyzing: Boolean = false,
     val metadata: VideoMetadata? = null,
-    val selectedFormat: FormatOption? = null,
     val isPlaylistMode: Boolean = false,
     val downloadEntirePlaylist: Boolean = true,
     val selectedItemIds: Set<String> = emptySet(),
@@ -48,10 +51,20 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun onUrlChanged(newUrl: String) {
+        val isPlaylist = YoutubeDLEngine.isPlaylistUrl(newUrl)
         _uiState.value = _uiState.value.copy(
             urlInput = newUrl,
+            isPlaylistMode = isPlaylist,
             errorMessage = null,
             showQueueConfirmation = false
+        )
+    }
+
+    fun onMediaTypeChanged(type: MediaType) {
+        val defaultFormat = if (type == MediaType.VIDEO) PresetFormats.VideoBest else PresetFormats.AudioMp3
+        _uiState.value = _uiState.value.copy(
+            mediaType = type,
+            selectedFormat = defaultFormat
         )
     }
 
@@ -82,7 +95,7 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.value = _uiState.value.copy(selectedItemIds = emptySet())
     }
 
-    fun analyzeVideo() {
+    fun inspectVideo() {
         val url = _uiState.value.urlInput.trim()
         if (url.isBlank()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Please enter a valid video or playlist link")
@@ -98,13 +111,10 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
 
             val result = YoutubeDLEngine.extractInfo(url)
             result.onSuccess { meta ->
-                val defaultFormat = meta.availableFormats.firstOrNull()
                 val allIds = meta.playlistItems.map { it.id }.toSet()
-
                 _uiState.value = _uiState.value.copy(
                     isAnalyzing = false,
                     metadata = meta,
-                    selectedFormat = defaultFormat,
                     isPlaylistMode = meta.isPlaylist,
                     downloadEntirePlaylist = true,
                     selectedItemIds = allIds
@@ -112,7 +122,7 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
             }.onFailure { err ->
                 _uiState.value = _uiState.value.copy(
                     isAnalyzing = false,
-                    errorMessage = err.message ?: "Failed to extract video information"
+                    errorMessage = err.message ?: "Failed to inspect video information"
                 )
             }
         }
@@ -120,11 +130,13 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startDownload() {
         val state = _uiState.value
-        val meta = state.metadata ?: return
-        val format = state.selectedFormat ?: meta.availableFormats.firstOrNull() ?: return
+        val url = state.urlInput.trim()
+        if (url.isBlank()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Please enter a video or playlist link")
+            return
+        }
 
         viewModelScope.launch {
-            // Check network rules from user preferences
             val wifiEnabled = themePreferences.wifiDownloadsFlow.firstOrNull() ?: true
             val mobileDataEnabled = themePreferences.mobileDataDownloadsFlow.firstOrNull() ?: true
 
@@ -134,14 +146,12 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
                 return@launch
             }
 
-            if (state.isPlaylistMode && meta.playlistItems.isNotEmpty()) {
-                // Batch Playlist Enqueue
-                val targetItems = if (state.downloadEntirePlaylist) {
-                    meta.playlistItems
-                } else {
-                    meta.playlistItems.filter { state.selectedItemIds.contains(it.id) }
-                }
+            val format = state.selectedFormat
+            val meta = state.metadata
 
+            if (state.isPlaylistMode && meta != null && meta.playlistItems.isNotEmpty() && !state.downloadEntirePlaylist) {
+                // User selectively picked specific playlist items
+                val targetItems = meta.playlistItems.filter { state.selectedItemIds.contains(it.id) }
                 if (targetItems.isEmpty()) {
                     _uiState.value = _uiState.value.copy(errorMessage = "Please select at least one video to download")
                     return@launch
@@ -170,26 +180,25 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
 
                 _uiState.value = DownloaderUiState(
                     urlInput = "",
-                    isAnalyzing = false,
-                    metadata = null,
-                    selectedFormat = null,
-                    errorMessage = null,
+                    selectedFormat = format,
                     showQueueConfirmation = true,
                     queuedTaskTitle = "Queued ${targetItems.size} videos from \"${meta.title}\""
                 )
-
             } else {
-                // Single Video Enqueue
+                // Instant Enqueue (Zero-Latency)
                 val taskId = UUID.randomUUID().toString()
+                val taskTitle = meta?.title ?: "Video Download (${format.label})"
+
                 val downloadEntity = DownloadEntity(
                     id = taskId,
-                    url = meta.url,
-                    title = meta.title,
-                    uploader = meta.uploader,
-                    thumbnailUrl = meta.thumbnailUrl,
+                    url = url,
+                    title = taskTitle,
+                    uploader = meta?.uploader ?: "",
+                    thumbnailUrl = meta?.thumbnailUrl ?: "",
                     formatId = format.formatId,
                     qualityLabel = format.label,
-                    isPlaylist = false,
+                    isPlaylist = state.isPlaylistMode,
+                    playlistTitle = meta?.title,
                     isAudioOnly = format.isAudioOnly,
                     status = DownloadStatus.QUEUED
                 )
@@ -199,12 +208,9 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
 
                 _uiState.value = DownloaderUiState(
                     urlInput = "",
-                    isAnalyzing = false,
-                    metadata = null,
-                    selectedFormat = null,
-                    errorMessage = null,
+                    selectedFormat = format,
                     showQueueConfirmation = true,
-                    queuedTaskTitle = meta.title
+                    queuedTaskTitle = taskTitle
                 )
             }
         }
