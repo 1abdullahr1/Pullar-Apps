@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,6 +54,7 @@ import com.pullar.app.ui.components.MediaPlayerCard
 import com.pullar.app.ui.theme.ErrorRed
 import com.pullar.app.ui.theme.MayaBlue
 import com.pullar.app.ui.theme.ToffeeBrown
+import com.pullar.app.util.StorageUtils
 
 @Composable
 fun DownloadsScreen(
@@ -59,6 +62,7 @@ fun DownloadsScreen(
     onPlayMedia: (String) -> Unit = {}
 ) {
     val downloads by viewModel.activeDownloads.collectAsState()
+    val context = LocalContext.current
     var playingTask by remember { mutableStateOf<DownloadEntity?>(null) }
 
     Column(
@@ -67,19 +71,39 @@ fun DownloadsScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        // Header
-        Text(
-            text = "Active Downloads",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = "${downloads.size} task(s) currently processing",
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        // Header with Open Folder Action
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Active Downloads",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "${downloads.size} task(s) in queue",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            OutlinedButton(
+                onClick = { StorageUtils.openDownloadsFolder(context) },
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Open Folder", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Inline Material 3 Card Player if a task is being played
         playingTask?.let { task ->
@@ -112,6 +136,15 @@ fun DownloadsScreen(
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = { StorageUtils.openDownloadsFolder(context) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open Downloads Folder", fontSize = 12.sp)
+                    }
                 }
             }
         } else {
@@ -163,7 +196,7 @@ fun DownloadCard(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
 
-                // Title & Badges
+                // Title and Badges
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = task.title,
@@ -175,7 +208,8 @@ fun DownloadCard(
                     )
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = task.qualityLabel,
@@ -187,11 +221,16 @@ fun DownloadCard(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                         if (task.isPlaylist) {
+                            val playlistLabel = if (task.playlistTotal > 0) {
+                                "Part ${task.playlistIndex} of ${task.playlistTotal}"
+                            } else {
+                                "Playlist"
+                            }
                             Text(
-                                text = "Playlist",
+                                text = playlistLabel,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = ToffeeBrown,
+                                color = MayaBlue,
                                 modifier = Modifier
                                     .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -225,10 +264,11 @@ fun DownloadCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Status, Speed, ETA
+            // Status, Speed, Dynamic ETA
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 val statusText = when (task.status) {
                     DownloadStatus.QUEUED -> "Queued"
@@ -247,9 +287,18 @@ fun DownloadCard(
                     color = if (task.status == DownloadStatus.FAILED) ErrorRed else MaterialTheme.colorScheme.primary
                 )
 
-                if (task.speed.isNotBlank()) {
+                // Dynamic ETA & Speed display
+                val etaText = task.etaFriendly.ifBlank { task.eta }
+                val speedAndEta = when {
+                    task.speed.isNotBlank() && etaText.isNotBlank() -> "${task.speed}  •  $etaText"
+                    task.speed.isNotBlank() -> task.speed
+                    etaText.isNotBlank() -> etaText
+                    else -> ""
+                }
+
+                if (speedAndEta.isNotBlank()) {
                     Text(
-                        text = "${task.speed}  ${task.eta}",
+                        text = speedAndEta,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

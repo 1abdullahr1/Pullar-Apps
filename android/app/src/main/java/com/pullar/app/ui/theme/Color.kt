@@ -2,27 +2,35 @@ package com.pullar.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Pullar Official Brand Palette
-val CoffeeBean = Color(0xFF1A110F)
-val LightApricot = Color(0xFFFFEBC2)
-val ToffeeBrown = Color(0xFF945E38)
-val MayaBlue = Color(0xFF7CC6FE)
+// Pullar Official Brand 4-Color Palette
+val CoffeeBean = Color(0xFF1A110F)    // #1a110f — Coffee Bean
+val LightApricot = Color(0xFFFFEBC2)  // #ffebc2 — Light Apricot
+val ToffeeBrown = Color(0xFF945E38)   // #945e38 — Toffee Brown
+val MayaBlue = Color(0xFF7CC6FE)      // #7cc6fe — Maya Blue
 
-// Dark Theme Surfaces
-val SurfaceDark = Color(0xFF241816)
-val SurfaceCard = Color(0xFF2B1D1A)
-val SurfaceBorder = Color(0xFF452D26)
-val TextMuted = Color(0xFFC7AF96)
+// Dark Theme Surface Architecture
+val DarkSurfaceBase = Color(0xFF1A110F)
+val DarkSurfaceCard = Color(0xFF241916)
+val DarkSurfaceElevated = Color(0xFF2E201C)
+val DarkSurfaceBorder = Color(0xFF4A3125)
+val DarkTextPrimary = Color(0xFFFFEBC2)
+val DarkTextSecondary = Color(0xFFD6C1A4)
+val DarkTextMuted = Color(0xFFA89178)
 
-// Light Theme Surfaces
-val LightBackground = Color(0xFFFFF7ED)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFF6E8DA)
-val LightBorder = Color(0xFFDCC1AE)
+// Light Theme Surface Architecture
+val LightSurfaceBase = Color(0xFFFFF9EE)
+val LightSurfaceCard = Color(0xFFFFFFFF)
+val LightSurfaceElevated = Color(0xFFF7EBD8)
+val LightSurfaceBorder = Color(0xFFD9BFAB)
 val LightTextPrimary = Color(0xFF1A110F)
-val LightTextMuted = Color(0xFF6B4D43)
-val MayaBlueDark = Color(0xFF1F74C7)
+val LightTextSecondary = Color(0xFF4D342B)
+val LightTextMuted = Color(0xFF825D4E)
+val MayaBlueDeep = Color(0xFF1E75C4)
 
 // Status Colors
 val ErrorRed = Color(0xFFE57373)
 val SuccessGreen = Color(0xFF81C784)
+val SurfaceDark = DarkSurfaceCard
+val SurfaceCard = DarkSurfaceCard
+val SurfaceBorder = DarkSurfaceBorder
+val TextMuted = DarkTextMuted

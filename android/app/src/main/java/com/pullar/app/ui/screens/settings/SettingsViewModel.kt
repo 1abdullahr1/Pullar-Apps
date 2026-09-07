@@ -35,6 +35,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val dynamicColor: StateFlow<Boolean> = themePreferences.dynamicColorFlow.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
+        false
+    )
+
+    val wifiDownloads: StateFlow<Boolean> = themePreferences.wifiDownloadsFlow.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        true
+    )
+
+    val mobileDataDownloads: StateFlow<Boolean> = themePreferences.mobileDataDownloadsFlow.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
         true
     )
 
@@ -47,6 +59,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun onDynamicColorToggled(enabled: Boolean) {
         viewModelScope.launch {
             themePreferences.setDynamicColor(enabled)
+        }
+    }
+
+    fun onWifiDownloadsToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setWifiDownloads(enabled)
+        }
+    }
+
+    fun onMobileDataDownloadsToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setMobileDataDownloads(enabled)
         }
     }
 

@@ -24,6 +24,10 @@ class DownloadRepository(private val downloadDao: DownloadDao) {
 
     suspend fun enqueue(download: DownloadEntity) = downloadDao.insert(download)
 
+    suspend fun enqueueAll(downloads: List<DownloadEntity>) = downloadDao.insertAll(downloads)
+
+    suspend fun getNextQueued(): DownloadEntity? = downloadDao.getNextQueued()
+
     suspend fun update(download: DownloadEntity) = downloadDao.update(download)
 
     suspend fun updateProgress(
@@ -31,12 +35,22 @@ class DownloadRepository(private val downloadDao: DownloadDao) {
         progress: Float,
         speed: String,
         eta: String,
+        etaFriendly: String,
         downloaded: Long,
         total: Long,
         status: DownloadStatus
-    ) = downloadDao.updateProgress(id, progress, speed, eta, downloaded, total, status)
+    ) = downloadDao.updateProgress(id, progress, speed, eta, etaFriendly, downloaded, total, status)
+
+    suspend fun updateCompleted(
+        id: String,
+        filePath: String,
+        downloaded: Long,
+        total: Long
+    ) = downloadDao.updateCompleted(id, filePath, downloaded, total)
 
     suspend fun updateStatus(id: String, status: DownloadStatus) = downloadDao.updateStatus(id, status)
+
+    suspend fun updateFailed(id: String, errorMessage: String) = downloadDao.updateFailed(id, DownloadStatus.FAILED, errorMessage)
 
     suspend fun delete(download: DownloadEntity) = downloadDao.delete(download)
 

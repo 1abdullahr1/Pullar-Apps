@@ -1,7 +1,6 @@
 package com.pullar.app.ui.screens.settings
 
 import android.os.Build
-import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,9 +20,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -31,6 +34,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
@@ -44,12 +48,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pullar.app.data.preferences.ThemeMode
-import java.io.File
+import com.pullar.app.ui.theme.MayaBlue
+import com.pullar.app.ui.theme.ToffeeBrown
+import com.pullar.app.util.NetworkType
+import com.pullar.app.util.NetworkUtils
+import com.pullar.app.util.StorageUtils
 
 @Composable
 fun SettingsScreen(
@@ -58,7 +67,12 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val dynamicColor by viewModel.dynamicColor.collectAsState()
+    val wifiDownloads by viewModel.wifiDownloads.collectAsState()
+    val mobileDataDownloads by viewModel.mobileDataDownloads.collectAsState()
+
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val currentNetwork = NetworkUtils.getCurrentNetworkType(context)
 
     Column(
         modifier = Modifier
@@ -75,13 +89,141 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "Preferences, appearance, and engine configuration",
+            text = "Preferences, network controls, and engine configuration",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 20.dp)
         )
 
-        // Appearance & Material You Card
+        // Network Usage Controls Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.NetworkCheck, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Network Usage Controls",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Detected Network Badge
+                val (netIcon, netLabel) = when (currentNetwork) {
+                    NetworkType.WIFI -> Pair(Icons.Default.Wifi, "Active Network: Wi-Fi Connected")
+                    NetworkType.CELLULAR -> Pair(Icons.Default.SignalCellularAlt, "Active Network: Mobile Data")
+                    NetworkType.ETHERNET -> Pair(Icons.Default.NetworkCheck, "Active Network: Ethernet Connected")
+                    NetworkType.NONE -> Pair(Icons.Default.NetworkCheck, "Active Network: Disconnected")
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(netIcon, contentDescription = null, tint = MayaBlue, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = netLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Wi-Fi Downloads Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Download over Wi-Fi",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Permit downloads while connected to Wi-Fi",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = wifiDownloads,
+                        onCheckedChange = { viewModel.onWifiDownloadsToggled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Mobile Data Downloads Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Download over Mobile Data",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Permit downloads while on cellular network",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = mobileDataDownloads,
+                        onCheckedChange = { viewModel.onMobileDataDownloadsToggled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                if (!mobileDataDownloads || !wifiDownloads) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (!mobileDataDownloads && !wifiDownloads) {
+                            "Notice: Both Wi-Fi and Mobile Data downloads are disabled. No new downloads can start."
+                        } else if (!mobileDataDownloads) {
+                            "Notice: Mobile data downloads are disabled. Downloads will pause or refuse to start on cellular connections."
+                        } else {
+                            "Notice: Wi-Fi downloads are disabled. Downloads will only start over mobile data."
+                        },
+                        fontSize = 11.sp,
+                        color = ToffeeBrown
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Appearance and Theme Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -152,7 +294,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Sample accent colors from your system wallpaper",
+                                text = "Sample accent colors from system wallpaper instead of brand palette",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -192,12 +334,9 @@ fun SettingsScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                val defaultPath = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    "Pullar"
-                ).absolutePath
+                val downloadDir = StorageUtils.getDownloadDirectory(context)
                 Text(
-                    text = defaultPath,
+                    text = downloadDir.absolutePath,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -205,6 +344,16 @@ fun SettingsScreen(
                         .padding(horizontal = 10.dp, vertical = 8.dp)
                         .fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { StorageUtils.openDownloadsFolder(context) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Open Download Folder", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -215,7 +364,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceVariantTheme(MaterialTheme.colorScheme.surfaceVariant)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(14.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -279,7 +428,7 @@ fun SettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Update the internal yt-dlp binary over the air to ensure compatibility with YouTube format changes.",
+                    text = "Update the internal yt-dlp binary over the air to ensure ongoing compatibility with streaming platforms.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -356,7 +505,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "High-speed multi-connection segmented video and audio downloader powered by yt-dlp and FFmpeg.",
+                    text = "Segmented multi-connection video and audio downloader powered by yt-dlp and FFmpeg.",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -378,6 +527,3 @@ fun SettingsScreen(
         }
     }
 }
-
-@Composable
-private fun SurfaceVariantTheme(color: androidx.compose.ui.graphics.Color) = color

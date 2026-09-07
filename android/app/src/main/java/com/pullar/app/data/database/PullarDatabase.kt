@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import com.pullar.app.data.dao.DownloadDao
 import com.pullar.app.data.model.DownloadEntity
 
-@Database(entities = [DownloadEntity::class], version = 1, exportSchema = false)
+@Database(entities = [DownloadEntity::class], version = 2, exportSchema = false)
 abstract class PullarDatabase : RoomDatabase() {
 
     abstract fun downloadDao(): DownloadDao

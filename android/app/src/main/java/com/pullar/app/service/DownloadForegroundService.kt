@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Environment
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -17,19 +16,26 @@ import com.pullar.app.core.YoutubeDLEngine
 import com.pullar.app.data.database.PullarDatabase
 import com.pullar.app.data.model.DownloadEntity
 import com.pullar.app.data.model.DownloadStatus
+import com.pullar.app.data.preferences.ThemePreferences
+import com.pullar.app.util.FormatUtils
+import com.pullar.app.util.NetworkCheckResult
+import com.pullar.app.util.NetworkUtils
+import com.pullar.app.util.StorageUtils
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.io.File
 
 class DownloadForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var currentDownloadJob: Job? = null
+    private var queueJob: Job? = null
+    @Volatile
     private var activeTaskId: String? = null
     private lateinit var notificationManager: NotificationManager
 
@@ -41,10 +47,10 @@ class DownloadForegroundService : Service() {
         const val ACTION_CANCEL_DOWNLOAD = "com.pullar.app.CANCEL_DOWNLOAD"
         const val EXTRA_TASK_ID = "extra_task_id"
 
-        fun startDownload(context: Context, taskId: String) {
+        fun startDownload(context: Context, taskId: String? = null) {
             val intent = Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_START_DOWNLOAD
-                putExtra(EXTRA_TASK_ID, taskId)
+                if (taskId != null) putExtra(EXTRA_TASK_ID, taskId)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -71,104 +77,134 @@ class DownloadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_DOWNLOAD -> {
-                val taskId = intent.getStringExtra(EXTRA_TASK_ID)
-                if (!taskId.isNullOrBlank()) {
-                    startForeground(NOTIFICATION_ID, buildNotification("Starting download...", 0, ""))
-                    processDownload(taskId)
-                }
+                startForeground(NOTIFICATION_ID, buildNotification("Pullar Downloader", "Starting queue...", 0))
+                startQueueProcessor()
             }
             ACTION_CANCEL_DOWNLOAD -> {
                 val taskId = intent.getStringExtra(EXTRA_TASK_ID)
-                if (taskId != null && taskId == activeTaskId) {
-                    cancelCurrentDownload()
+                if (taskId != null) {
+                    cancelTask(taskId)
                 }
             }
         }
         return START_NOT_STICKY
     }
 
-    private fun processDownload(taskId: String) {
-        currentDownloadJob?.cancel()
-        currentDownloadJob = serviceScope.launch {
-            activeTaskId = taskId
+    private fun startQueueProcessor() {
+        if (queueJob?.isActive == true) return
+
+        queueJob = serviceScope.launch {
             val db = PullarDatabase.getDatabase(applicationContext)
             val dao = db.downloadDao()
-            val task = dao.getById(taskId)
+            val themePreferences = ThemePreferences(applicationContext)
 
-            if (task == null) {
-                stopSelf()
-                return@launch
-            }
+            while (true) {
+                val nextTask = dao.getNextQueued() ?: break
+                activeTaskId = nextTask.id
 
-            try {
-                dao.updateStatus(taskId, DownloadStatus.DOWNLOADING)
+                // Network policy verification
+                val wifiEnabled = themePreferences.wifiDownloadsFlow.firstOrNull() ?: true
+                val mobileDataEnabled = themePreferences.mobileDataDownloadsFlow.firstOrNull() ?: true
 
-                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val pullarDir = File(downloadDir, "Pullar")
-                if (!pullarDir.exists()) {
-                    pullarDir.mkdirs()
+                val netCheck = NetworkUtils.isDownloadAllowed(applicationContext, wifiEnabled, mobileDataEnabled)
+                if (netCheck is NetworkCheckResult.Blocked) {
+                    dao.updateFailed(nextTask.id, errorMessage = netCheck.reason)
+                    showBlockedNotification(nextTask.title, netCheck.reason)
+                    continue
                 }
 
-                val request = YoutubeDLEngine.buildDownloadRequest(task, pullarDir)
-
-                YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
-                    val speed = extractSpeed(line)
-                    val etaFormatted = if (etaInSeconds > 0) "${etaInSeconds}s" else ""
-
-                    notificationManager.notify(
-                        NOTIFICATION_ID,
-                        buildNotification(task.title, progress.toInt(), speed)
-                    )
-
-                    serviceScope.launch {
-                        dao.updateProgress(
-                            id = taskId,
-                            progress = progress,
-                            speed = speed,
-                            eta = etaFormatted,
-                            downloaded = 0L,
-                            total = 0L,
-                            status = DownloadStatus.DOWNLOADING
-                        )
-                    }
-                }
-
-                // Download completed
-                dao.updateProgress(
-                    id = taskId,
-                    progress = 100f,
-                    speed = "Completed",
-                    eta = "",
-                    downloaded = 0L,
-                    total = 0L,
-                    status = DownloadStatus.COMPLETED
-                )
-
-                showCompletionNotification(task.title)
-
-            } catch (e: Exception) {
-                Log.e("DownloadService", "Download error: ${e.message}", e)
-                dao.updateStatus(taskId, DownloadStatus.FAILED)
-            } finally {
-                activeTaskId = null
-                stopForeground(STOP_FOREGROUND_DETACH)
-                stopSelf()
+                // Execute task download
+                processSingleTask(nextTask, dao)
             }
+
+            activeTaskId = null
+            stopForeground(STOP_FOREGROUND_DETACH)
+            stopSelf()
         }
     }
 
-    private fun cancelCurrentDownload() {
-        val taskId = activeTaskId
-        currentDownloadJob?.cancel()
-        if (taskId != null) {
-            YoutubeDL.getInstance().destroyProcessById(taskId)
-            serviceScope.launch {
-                val db = PullarDatabase.getDatabase(applicationContext)
-                db.downloadDao().updateStatus(taskId, DownloadStatus.CANCELLED)
+    private suspend fun processSingleTask(task: DownloadEntity, dao: com.pullar.app.data.dao.DownloadDao) {
+        val taskId = task.id
+        val outputDir = StorageUtils.getDownloadDirectory(applicationContext, task.playlistTitle)
+
+        try {
+            dao.updateStatus(taskId, DownloadStatus.DOWNLOADING)
+            val request = YoutubeDLEngine.buildDownloadRequest(task, outputDir)
+
+            YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
+                val speed = extractSpeed(line)
+                val friendlyEta = FormatUtils.formatEta(etaInSeconds.toLong())
+
+                val subtext = buildString {
+                    if (task.playlistTotal > 0) append("[${task.playlistIndex}/${task.playlistTotal}] ")
+                    if (speed.isNotBlank()) append("$speed • ")
+                    append(friendlyEta)
+                }
+
+                notificationManager.notify(
+                    NOTIFICATION_ID,
+                    buildNotification(task.title, subtext, progress.toInt())
+                )
+
+                serviceScope.launch {
+                    dao.updateProgress(
+                        id = taskId,
+                        progress = progress,
+                        speed = speed,
+                        eta = if (etaInSeconds > 0) "${etaInSeconds}s" else "",
+                        etaFriendly = friendlyEta,
+                        downloaded = 0L,
+                        total = 0L,
+                        status = DownloadStatus.DOWNLOADING
+                    )
+                }
             }
+
+            // Task execution completed - locate actual file on disk
+            val downloadedFile = findDownloadedFile(outputDir, task.title)
+            val finalPath = downloadedFile?.absolutePath ?: File(outputDir, "${task.title}.mp4").absolutePath
+            val finalSize = downloadedFile?.length() ?: 0L
+
+            dao.updateCompleted(
+                id = taskId,
+                filePath = finalPath,
+                downloaded = finalSize,
+                total = finalSize
+            )
+
+            if (downloadedFile != null) {
+                StorageUtils.scanMediaFile(applicationContext, downloadedFile)
+            }
+
+            showCompletionNotification(task.title)
+
+        } catch (e: Exception) {
+            Log.e("DownloadService", "Error downloading task $taskId: ${e.message}", e)
+            dao.updateFailed(taskId, errorMessage = e.message ?: "Download failed")
         }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+    }
+
+    private fun findDownloadedFile(dir: File, title: String): File? {
+        if (!dir.exists()) return null
+        val files = dir.listFiles() ?: return null
+        val sanitized = StorageUtils.sanitizeFilename(title).take(20).lowercase()
+        return files.filter { it.isFile && (it.extension == "mp4" || it.extension == "mp3" || it.extension == "m4a" || it.extension == "mkv") }
+            .maxByOrNull { file ->
+                var score = 0
+                if (file.name.lowercase().contains(sanitized)) score += 10
+                if (System.currentTimeMillis() - file.lastModified() < 300_000) score += 5
+                score
+            }
+    }
+
+    private fun cancelTask(taskId: String) {
+        if (taskId == activeTaskId) {
+            YoutubeDL.getInstance().destroyProcessById(taskId)
+        }
+        serviceScope.launch {
+            val db = PullarDatabase.getDatabase(applicationContext)
+            db.downloadDao().updateStatus(taskId, DownloadStatus.CANCELLED)
+        }
     }
 
     private fun extractSpeed(line: String): String {
@@ -176,7 +212,7 @@ class DownloadForegroundService : Service() {
         return speedMatch?.groupValues?.get(1) ?: ""
     }
 
-    private fun buildNotification(title: String, progress: Int, speed: String): android.app.Notification {
+    private fun buildNotification(title: String, subtitle: String, progress: Int): android.app.Notification {
         val launchIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -185,11 +221,9 @@ class DownloadForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = if (speed.isNotBlank()) "$progress% • $speed" else "$progress%"
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(contentText)
+            .setContentText(subtitle)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setProgress(100, progress, progress == 0)
             .setOngoing(true)
@@ -215,6 +249,27 @@ class DownloadForegroundService : Service() {
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), completionNotification)
+    }
+
+    private fun showBlockedNotification(title: String, reason: String) {
+        val launchIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            2,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val blockedNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Download Blocked")
+            .setContentText("$title: $reason")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n$reason"))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(System.currentTimeMillis().toInt(), blockedNotification)
     }
 
     private fun createNotificationChannel() {

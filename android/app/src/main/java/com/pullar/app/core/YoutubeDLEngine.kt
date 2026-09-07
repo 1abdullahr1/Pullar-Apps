@@ -4,20 +4,22 @@ import android.content.Context
 import android.util.Log
 import com.pullar.app.data.model.DownloadEntity
 import com.pullar.app.data.model.FormatOption
+import com.pullar.app.data.model.PlaylistItem
 import com.pullar.app.data.model.VideoMetadata
+import com.pullar.app.util.FormatUtils
+import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
-import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.yausername.youtubedl_android.YoutubeDLResponse
-import com.yausername.ffmpeg.FFmpeg
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
-import java.util.regex.Pattern
 
 object YoutubeDLEngine {
 
     private const val TAG = "PullarYoutubeDL"
+    @Volatile
     private var isInitialized = false
 
     fun init(context: Context) {
@@ -54,47 +56,80 @@ object YoutubeDLEngine {
             request.addOption("--dump-single-json")
             request.addOption("--no-warnings")
             request.addOption("--flat-playlist")
+            request.addOption("--socket-timeout", "25")
 
             val response: YoutubeDLResponse = YoutubeDL.getInstance().execute(request)
             val output = response.out
 
-            val titleMatch = Regex("\"title\"\\s*:\\s*\"([^\"]+)\"").find(output)
-            val title = titleMatch?.groupValues?.get(1) ?: "Unknown Title"
+            val json = JSONObject(output)
+            val title = json.optString("title", "Unknown Title")
+            val uploader = json.optString("uploader", json.optString("channel", ""))
+            val durationSeconds = json.optLong("duration", 0L)
+            val durationFormatted = FormatUtils.formatDuration(durationSeconds)
 
-            val uploaderMatch = Regex("\"uploader\"\\s*:\\s*\"([^\"]+)\"").find(output)
-                ?: Regex("\"channel\"\\s*:\\s*\"([^\"]+)\"").find(output)
-            val uploader = uploaderMatch?.groupValues?.get(1) ?: ""
+            // Extract thumbnail
+            var thumbnailUrl = json.optString("thumbnail", "")
+            if (thumbnailUrl.isBlank() && json.has("thumbnails")) {
+                val thumbs = json.optJSONArray("thumbnails")
+                if (thumbs != null && thumbs.length() > 0) {
+                    val lastThumb = thumbs.optJSONObject(thumbs.length() - 1)
+                    thumbnailUrl = lastThumb?.optString("url", "") ?: ""
+                }
+            }
 
-            val durationMatch = Regex("\"duration\"\\s*:\\s*([0-9]+)").find(output)
-            val durationSeconds = durationMatch?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-            val durationFormatted = formatDuration(durationSeconds)
+            // Playlist items extraction
+            val playlistItems = mutableListOf<PlaylistItem>()
+            var playlistCount = 0
 
-            val thumbMatch = Regex("\"thumbnail\"\\s*:\\s*\"([^\"]+)\"").find(output)
-            val thumbnailUrl = thumbMatch?.groupValues?.get(1) ?: ""
+            if (json.has("entries")) {
+                val entries = json.optJSONArray("entries")
+                if (entries != null) {
+                    playlistCount = entries.length()
+                    for (i in 0 until entries.length()) {
+                        val entry = entries.optJSONObject(i) ?: continue
+                        val itemTitle = entry.optString("title", "Video #${i + 1}")
+                        val itemId = entry.optString("id", "")
+                        var itemUrl = entry.optString("url", "")
+                        if (itemUrl.isBlank() || !itemUrl.startsWith("http")) {
+                            itemUrl = if (itemId.isNotBlank()) "https://www.youtube.com/watch?v=$itemId" else url
+                        }
+                        val itemDuration = entry.optLong("duration", 0L)
+                        val itemThumb = entry.optString("thumbnail", "")
 
-            val playlistCount = if (isPlaylist) {
-                Regex("\"entries\"\\s*:\\s*\\[").findAll(output).count()
-            } else 0
+                        playlistItems.add(
+                            PlaylistItem(
+                                id = itemId.ifBlank { "item_$i" },
+                                title = itemTitle,
+                                url = itemUrl,
+                                durationSeconds = itemDuration,
+                                durationFormatted = FormatUtils.formatDuration(itemDuration),
+                                thumbnailUrl = itemThumb,
+                                index = i + 1
+                            )
+                        )
+                    }
+                }
+            }
 
             val formats = listOf(
                 FormatOption(
-                    formatId = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                    formatId = "bestvideo+bestaudio/best",
                     label = "Best Quality (MP4)",
                     resolution = "Highest Available",
                     extension = "mp4",
                     isAudioOnly = false,
-                    note = "Full quality video with merged audio"
+                    note = "Full quality merged with FFmpeg"
                 ),
                 FormatOption(
-                    formatId = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]",
-                    label = "1080p FHD",
+                    formatId = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+                    label = "1080p Full HD",
                     resolution = "1920x1080",
                     extension = "mp4",
                     isAudioOnly = false,
-                    note = "High Definition"
+                    note = "High Definition MP4"
                 ),
                 FormatOption(
-                    formatId = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
+                    formatId = "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
                     label = "720p HD",
                     resolution = "1280x720",
                     extension = "mp4",
@@ -102,7 +137,7 @@ object YoutubeDLEngine {
                     note = "Standard High Definition"
                 ),
                 FormatOption(
-                    formatId = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]",
+                    formatId = "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
                     label = "480p SD",
                     resolution = "854x480",
                     extension = "mp4",
@@ -127,8 +162,9 @@ object YoutubeDLEngine {
                     durationSeconds = durationSeconds,
                     durationFormatted = durationFormatted,
                     thumbnailUrl = thumbnailUrl,
-                    isPlaylist = isPlaylist,
+                    isPlaylist = isPlaylist || playlistCount > 0,
                     playlistCount = playlistCount,
+                    playlistItems = playlistItems,
                     availableFormats = formats
                 )
             )
@@ -144,27 +180,19 @@ object YoutubeDLEngine {
     ): YoutubeDLRequest {
         val request = YoutubeDLRequest(item.url)
 
-        val destinationTemplate = if (item.isPlaylist) {
-            "${outputDirectory.absolutePath}/%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"
-        } else {
-            "${outputDirectory.absolutePath}/%(title)s.%(ext)s"
-        }
+        val destinationTemplate = "${outputDirectory.absolutePath}/%(title)s.%(ext)s"
         request.addOption("-o", destinationTemplate)
 
-        // IDM-Style High-Speed Segmented Multi-Connection Scheme
-        request.addOption("--concurrent-fragments", "16")
-        request.addOption("--buffer-size", "1024K")
-        request.addOption("--http-chunk-size", "10M")
-        request.addOption("--retries", "10")
-        request.addOption("--fragment-retries", "10")
+        // Safe mobile networking scheme
+        request.addOption("--retries", "5")
+        request.addOption("--fragment-retries", "5")
+        request.addOption("--socket-timeout", "30")
+        request.addOption("--no-mtime")
+        request.addOption("--no-warnings")
+        request.addOption("--no-check-certificates")
 
-        // Playlist enforcement
-        if (item.isPlaylist) {
-            request.addOption("--yes-playlist")
-        } else {
-            // Strictly enforce --no-playlist to prevent repeated loop downloading on single watch URLs
-            request.addOption("--no-playlist")
-        }
+        // Single video enforcement per discrete task
+        request.addOption("--no-playlist")
 
         // Format & Audio handling
         if (item.isAudioOnly) {
@@ -176,20 +204,6 @@ object YoutubeDLEngine {
             request.addOption("--merge-output-format", "mp4")
         }
 
-        request.addOption("--no-warnings")
-        request.addOption("--no-check-certificates")
         return request
-    }
-
-    private fun formatDuration(seconds: Long): String {
-        if (seconds <= 0) return ""
-        val hrs = seconds / 3600
-        val mins = (seconds % 3600) / 60
-        val secs = seconds % 60
-        return if (hrs > 0) {
-            String.format("%d:%02d:%02d", hrs, mins, secs)
-        } else {
-            String.format("%d:%02d", mins, secs)
-        }
     }
 }

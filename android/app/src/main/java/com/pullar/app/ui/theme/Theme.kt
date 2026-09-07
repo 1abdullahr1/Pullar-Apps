@@ -18,47 +18,47 @@ private val PullarDarkColorScheme = darkColorScheme(
     onPrimaryContainer = LightApricot,
     secondary = ToffeeBrown,
     onSecondary = LightApricot,
-    secondaryContainer = SurfaceCard,
+    secondaryContainer = DarkSurfaceElevated,
     onSecondaryContainer = LightApricot,
     tertiary = MayaBlue,
     onTertiary = CoffeeBean,
-    background = CoffeeBean,
-    onBackground = LightApricot,
-    surface = SurfaceDark,
-    onSurface = LightApricot,
-    surfaceVariant = SurfaceCard,
-    onSurfaceVariant = TextMuted,
-    outline = SurfaceBorder,
+    background = DarkSurfaceBase,
+    onBackground = DarkTextPrimary,
+    surface = DarkSurfaceCard,
+    onSurface = DarkTextPrimary,
+    surfaceVariant = DarkSurfaceElevated,
+    onSurfaceVariant = DarkTextSecondary,
+    outline = DarkSurfaceBorder,
     error = ErrorRed,
     onError = CoffeeBean
 )
 
 private val PullarLightColorScheme = lightColorScheme(
-    primary = ToffeeBrown,
+    primary = CoffeeBean,
     onPrimary = LightApricot,
-    primaryContainer = MayaBlue,
-    onPrimaryContainer = CoffeeBean,
-    secondary = MayaBlueDark,
-    onSecondary = LightSurface,
-    secondaryContainer = LightSurfaceVariant,
+    primaryContainer = MayaBlueDeep,
+    onPrimaryContainer = LightSurfaceCard,
+    secondary = ToffeeBrown,
+    onSecondary = LightApricot,
+    secondaryContainer = LightSurfaceElevated,
     onSecondaryContainer = LightTextPrimary,
-    tertiary = ToffeeBrown,
-    onTertiary = LightApricot,
-    background = LightBackground,
+    tertiary = MayaBlueDeep,
+    onTertiary = LightSurfaceCard,
+    background = LightSurfaceBase,
     onBackground = LightTextPrimary,
-    surface = LightSurface,
+    surface = LightSurfaceCard,
     onSurface = LightTextPrimary,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightTextMuted,
-    outline = LightBorder,
+    surfaceVariant = LightSurfaceElevated,
+    onSurfaceVariant = LightTextSecondary,
+    outline = LightSurfaceBorder,
     error = ErrorRed,
-    onError = LightSurface
+    onError = LightSurfaceCard
 )
 
 @Composable
 fun PullarTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val isDark = when (themeMode) {

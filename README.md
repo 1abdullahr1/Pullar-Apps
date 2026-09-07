@@ -42,12 +42,16 @@ Choose the APK matching your device:
 - Bundled yt-dlp and FFmpeg binaries.
 
 ### Android (Kotlin & Jetpack Compose)
-- Material You dynamic theming on Android 12+ (wallpaper-adaptive).
-- Appearance mode toggle: System Default, Dark, and Light.
-- Inline Material 3 media player with 16:9 video card and timeline scrubber.
-- One-tap fullscreen expansion and external player launcher (VLC, MX Player, gallery).
+- Signature brand palette: Toffee Brown (#945e38), Light Apricot (#ffebc2), Coffee Bean (#1a110f), and Maya Blue (#7cc6fe).
+- Theme mode support: System Default, Dark Mode, and Light Mode with high contrast.
+- Seamless Android Share Sheet download flow: Tap Share in YouTube or any browser to select quality and download in background without switching apps.
+- YouTube playlist downloading: Batch download entire playlists or select individual videos with item checklist.
+- Dynamic download-time estimate: Live updates ("About 2 min remaining", "Less than 1 min remaining").
+- Network usage controls: Configurable Wi-Fi and Mobile Data download permissions with real-time network detection.
+- Direct "Open Downloads Folder" action for instant file manager access.
+- Inline Material 3 media player with 16:9 card, fullscreen toggle, and external player launcher.
 - Background audio playback with screen off or app minimized.
-- Fast animated startup splash screen.
+- Fast cold startup with zero artificial delay.
 
 ---
 

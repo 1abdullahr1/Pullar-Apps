@@ -19,8 +19,12 @@ data class DownloadEntity(
     val progress: Float = 0f,
     val speed: String = "",
     val eta: String = "",
+    val etaFriendly: String = "",
     val status: DownloadStatus = DownloadStatus.QUEUED,
     val isPlaylist: Boolean = false,
+    val playlistTitle: String = "",
+    val playlistIndex: Int = 0,
+    val playlistTotal: Int = 0,
     val isAudioOnly: Boolean = false,
     val errorMessage: String = "",
     val createdAt: Long = System.currentTimeMillis()

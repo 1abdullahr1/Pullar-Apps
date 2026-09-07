@@ -47,7 +47,7 @@ jobs:
           find android/app/build/outputs/apk/debug/ -name "*universal*.apk" -exec cp {} apk_output/Pullar-v1.2.0-universal.apk \;
           find android/app/build/outputs/apk/debug/ -name "*armeabi-v7a*.apk" -exec cp {} apk_output/Pullar-v1.2.0-armeabi-v7a.apk \;
           find android/app/build/outputs/apk/debug/ -name "*x86_64*.apk" -exec cp {} apk_output/Pullar-v1.2.0-x86_64.apk \;
-          cp apk_output/Pullar-v1.2.0-arm64-v8a.apk apk_output/Pullar-v1.0.0-Android-debug.apk || true
+          cp apk_output/Pullar-v1.2.0-arm64-v8a.apk apk_output/Pullar-v1.2.0-Android-debug.apk || true
           ls -la apk_output/
 
       - name: Upload APK Artifacts

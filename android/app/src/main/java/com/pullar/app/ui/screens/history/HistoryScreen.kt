@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -30,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -52,6 +54,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pullar.app.data.model.DownloadEntity
 import com.pullar.app.ui.components.MediaPlayerCard
+import com.pullar.app.ui.theme.MayaBlue
+import com.pullar.app.util.StorageUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -91,13 +95,27 @@ fun HistoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (items.isNotEmpty()) {
-                IconButton(onClick = { viewModel.clearAllHistory() }) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Clear All History",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { StorageUtils.openDownloadsFolder(context) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
+                ) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Folder", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                if (items.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.clearAllHistory() }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Clear All History",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -165,6 +183,15 @@ fun HistoryScreen(
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = { StorageUtils.openDownloadsFolder(context) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open Downloads Folder", fontSize = 12.sp)
+                    }
                 }
             }
         } else {
@@ -228,7 +255,7 @@ fun HistoryCard(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
 
-                // Title & Date
+                // Title and Date
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.title,
@@ -240,7 +267,8 @@ fun HistoryCard(
                     )
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = item.qualityLabel,
@@ -251,6 +279,22 @@ fun HistoryCard(
                                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
+                        if (item.isPlaylist) {
+                            val playlistLabel = if (item.playlistTotal > 0) {
+                                "Part ${item.playlistIndex} of ${item.playlistTotal}"
+                            } else {
+                                "Playlist"
+                            }
+                            Text(
+                                text = playlistLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MayaBlue,
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                         val dateFormatted = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(item.createdAt))
                         Text(
                             text = dateFormatted,
