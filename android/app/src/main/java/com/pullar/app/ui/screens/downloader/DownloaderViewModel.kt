@@ -198,7 +198,7 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
                     formatId = format.formatId,
                     qualityLabel = format.label,
                     isPlaylist = state.isPlaylistMode,
-                    playlistTitle = meta?.title,
+                    playlistTitle = meta?.title ?: "",
                     isAudioOnly = format.isAudioOnly,
                     status = DownloadStatus.QUEUED
                 )
