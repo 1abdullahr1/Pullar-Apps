@@ -122,6 +122,7 @@ fun SettingsScreen(
                     NetworkType.WIFI -> Pair(Icons.Default.Wifi, "Active Network: Wi-Fi Connected")
                     NetworkType.CELLULAR -> Pair(Icons.Default.SignalCellularAlt, "Active Network: Mobile Data")
                     NetworkType.ETHERNET -> Pair(Icons.Default.NetworkCheck, "Active Network: Ethernet Connected")
+                    NetworkType.OTHER -> Pair(Icons.Default.NetworkCheck, "Active Network: Connected")
                     NetworkType.NONE -> Pair(Icons.Default.NetworkCheck, "Active Network: Disconnected")
                 }
 
